@@ -3,114 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>두쫀쿠 다마고치</title>
+    <title>두쫀쿠 어드벤처</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
     <style>
-        :root { --main-color: #ffcc80; --btn-color: #fb8c00; }
-        body { margin: 0; background: #fff5e6; font-family: 'Apple SD Gothic Neo', sans-serif; text-align: center; color: #5d4037; }
-        
-        /* 상단 상태바 */
-        #status-bar { display: flex; justify-content: space-around; padding: 15px; background: var(--main-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .stat-item { font-weight: bold; font-size: 0.9rem; }
+        :root {
+            --bg-color: #fce4ec;
+            --main-brown: #5d4037;
+            --gold-gradient: linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+        }
 
-        /* 메인 캐릭터 영역 */
-        #game-screen { height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #character { font-size: 120px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; user-select: none; }
-        #character:active { transform: scale(1.3) rotate(5deg); }
-        #message { margin-top: 20px; font-size: 1.1rem; min-height: 1.5em; background: white; padding: 5px 20px; border-radius: 20px; border: 2px solid var(--main-color); }
+        body { 
+            margin: 0; background: var(--bg-color); 
+            font-family: 'Jua', sans-serif; overflow: hidden;
+            display: flex; flex-direction: column; height: 100vh;
+        }
 
-        /* 컨트롤 버튼 */
-        .controls { display: flex; justify-content: center; gap: 15px; padding: 20px; }
-        button { padding: 12px 25px; border: none; border-radius: 25px; background: var(--btn-color); color: white; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 0 #e65100; transition: 0.1s; }
-        button:active { transform: translateY(3px); box-shadow: 0 1px 0 #e65100; }
+        /* 화려한 상단 상태바 */
+        #header {
+            padding: 20px; background: white;
+            border-bottom-left-radius: 30px; border-bottom-right-radius: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+
+        .stat-container { display: flex; justify-content: space-around; }
+        .stat-box { text-align: center; }
+        .stat-label { font-size: 0.8rem; color: #888; display: block; }
+        .stat-value { font-size: 1.2rem; color: var(--main-brown); font-weight: bold; }
+
+        /* 메인 게임 스테이지 */
+        #stage {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; position: relative;
+        }
+
+        #character-wrap { position: relative; cursor: pointer; }
         
-        /* 홀더 인증 섹션 */
-        #holder-section { margin-top: 10px; padding: 10px; border-top: 1px dashed #d7ccc8; }
-        .badge { display: inline-block; padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; background: #eee; margin-bottom: 10px; }
-        .gold-tier { background: #ffd700; color: #856404; font-weight: bold; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+        #character {
+            font-size: 150px; filter: drop-shadow(0 20px 10px rgba(0,0,0,0.1));
+            transition: transform 0.1s;
+        }
+
+        /* 클릭 시 튀어나오는 텍스트 효과 */
+        .floating-text {
+            position: absolute; color: #ff4081; font-weight: bold;
+            font-size: 1.5rem; pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+
+        /* 하단 컨트롤 */
+        #footer { padding: 30px; display: flex; gap: 15px; justify-content: center; }
+        
+        .btn {
+            padding: 15px 30px; border: none; border-radius: 20px;
+            font-family: 'Jua', sans-serif; font-size: 1.1rem;
+            color: white; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .btn-feed { background: #ff80ab; }
+        .btn-play { background: #ba68c8; }
+        .btn:active { transform: scale(0.9); }
+
+        /* 홀더 인증 특수 효과 (네온) */
+        .holder-aura {
+            position: absolute; width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%);
+            border-radius: 50%; z-index: -1;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: translateY(0.9); opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="status-bar">
-        <div class="stat-item">🍗 포만감: <span id="hunger">100</span></div>
-        <div class="stat-item">❤️ 행복: <span id="happiness">100</span></div>
+    <div id="header">
+        <div class="stat-container">
+            <div class="stat-box">
+                <span class="stat-label">🍗 배고픔</span>
+                <span class="stat-value" id="hunger">100</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">❤️ 행복도</span>
+                <span class="stat-value" id="happiness">100</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">💰 보유 코인</span>
+                <span class="stat-value" id="coins">0</span>
+            </div>
+        </div>
     </div>
 
-    <div id="game-screen">
-        <div id="tier-badge" class="badge">일반 쿠키 등급</div>
-        <div id="character">🍪</div>
-        <div id="message">나를 돌봐줘! (솔라나 지갑 연결 가능)</div>
+    <div id="stage">
+        <div id="holder-aura" style="display:none;" class="holder-aura"></div>
+        <div id="character-wrap" onclick="clickChar(event)">
+            <div id="character" class="animate__animated animate__bounceIn">🍪</div>
+        </div>
+        <p id="msg" class="animate__animated">안녕! 나를 키워줘!</p>
     </div>
 
-    <div class="controls">
-        <button onclick="feed()">🍙 먹이주기</button>
-        <button onclick="play()">🎾 놀아주기</button>
-    </div>
-
-    <div id="holder-section">
-        <button onclick="connectWallet()" style="background: #512da8; font-size: 0.8rem;">솔라나 지갑 연결 (보유량 확인)</button>
+    <div id="footer">
+        <button class="btn btn-feed" onclick="action('feed')">🍪 먹이주기</button>
+        <button class="btn btn-play" onclick="action('play')">🎮 놀아주기</button>
     </div>
 
     <script>
-        // 게임 데이터
-        let state = {
-            hunger: 100,
-            happiness: 100,
-            tokenBalance: 0, // 솔라나 코인 보유량
-            isHolder: false
-        };
+        let stats = { hunger: 100, happiness: 100, coins: 0, isHolder: false };
 
-        const charEl = document.getElementById('character');
-        const msgEl = document.getElementById('message');
-        const badgeEl = document.getElementById('tier-badge');
-
-        // 상태 업데이트 루프 (5초마다)
-        setInterval(() => {
-            state.hunger = Math.max(0, state.hunger - 5);
-            state.happiness = Math.max(0, state.happiness - 3);
-            render();
-        }, 5000);
-
-        function render() {
-            document.getElementById('hunger').innerText = state.hunger;
-            document.getElementById('happiness').innerText = state.happiness;
-
-            // 등급별 캐릭터 및 상태 변경
-            if (state.tokenBalance >= 1000000) { // 100만개 보유 시
-                badgeEl.innerText = "⭐ 골드 쫀떡 홀더 ⭐";
-                badgeEl.className = "badge gold-tier";
-                if (charEl.innerText !== "👑") charEl.innerText = "👑"; // 왕관 쓴 쿠키
-            } else {
-                if (state.hunger < 30) charEl.innerText = "😭";
-                else if (state.happiness < 30) charEl.innerText = "😴";
-                else charEl.innerText = "🍪";
-            }
-        }
-
-        function feed() {
-            state.hunger = Math.min(100, state.hunger + 20);
-            msgEl.innerText = "냠냠! 너무 맛있어!";
-            render();
-        }
-
-        function play() {
-            state.happiness = Math.min(100, state.happiness + 20);
-            msgEl.innerText = "와! 쫀떡은 행복해요!";
-            render();
-        }
-
-        // 솔라나 지갑 연결 (시뮬레이션)
-        async function connectWallet() {
-            msgEl.innerText = "지갑을 연결하는 중...";
+        // 캐릭터 클릭 시 효과
+        function clickChar(e) {
+            stats.coins += 10;
+            updateUI();
             
-            // 나중에 여기에 실제 Solana @solana/web3.js 연동 코드가 들어갑니다.
-            setTimeout(() => {
-                // 테스트용: 클릭 시 200만개 보유한 것으로 가정
-                state.tokenBalance = 2000000;
-                state.isHolder = true;
-                msgEl.innerText = "홀더 인증 성공! 왕관을 얻었습니다!";
-                render();
-            }, 1500);
+            // 1. 흔들리는 애니메이션
+            const char = document.getElementById('character');
+            char.classList.remove('animate__bounce');
+            void char.offsetWidth; // 리플로우 강제
+            char.classList.add('animate__bounce');
+
+            // 2. 플로팅 텍스트 생성
+            createFloatingText(e.clientX, e.clientY, "+10$");
+        }
+
+        function createFloatingText(x, y, text) {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.innerText = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function action(type) {
+            const msg = document.getElementById('msg');
+            if(type === 'feed') {
+                stats.hunger = Math.min(100, stats.hunger + 15);
+                msg.innerText = "냠냠! 맛있다!";
+                msg.className = "animate__animated animate__heartBeat";
+            } else {
+                stats.happiness = Math.min(100, stats.happiness + 15);
+                msg.innerText = "야호! 너무 신나!";
+                msg.className = "animate__animated animate__tada";
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('hunger').innerText = stats.hunger;
+            document.getElementById('happiness').innerText = stats.happiness;
+            document.getElementById('coins').innerText = stats.coins.toLocaleString();
+            
+            // 코인이 1000개 넘으면 홀더 아우라 등장 (테스트용)
+            if(stats.coins >= 1000) {
+                document.getElementById('holder-aura').style.display = 'block';
+                document.getElementById('character').innerText = "🍩"; // 진화!
+            }
         }
     </script>
 </body>
