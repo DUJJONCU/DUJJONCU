@@ -1,63 +1,110 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>두쫀쿠 미니게임</title>
+    <title>두쫀쿠 RPG</title>
     <style>
-        body { margin: 0; text-align: center; background-color: #fdf5e6; font-family: 'Arial', sans-serif; overflow: hidden; }
-        #game-container { margin-top: 50px; }
-        #score { font-size: 2rem; color: #8b4513; font-weight: bold; }
-        #cookie { 
-            width: 200px; cursor: pointer; transition: transform 0.1s; 
-            -webkit-tap-highlight-color: transparent;
-        }
-        #cookie:active { transform: scale(0.9); }
-        .item-status { margin-top: 20px; color: #d2691e; }
-        #holder-btn { margin-top: 30px; padding: 10px 20px; background: #ff9800; border: none; border-radius: 20px; color: white; cursor: pointer; }
+        body { margin: 0; background: #222; color: white; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
+        #game-world { width: 100vw; height: 70vh; background: #4a7d4a; position: relative; overflow: hidden; border-bottom: 4px solid #333; }
+        #player { width: 40px; height: 40px; background: #f0ad4e; position: absolute; top: 50%; left: 50%; transition: 0.2s; border-radius: 5px; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+        #ui-panel { height: 30vh; padding: 15px; background: #333; }
+        .stats { font-size: 14px; margin-bottom: 10px; color: #ffeb3b; }
+        .log { font-size: 12px; height: 60px; overflow-y: auto; background: #000; padding: 5px; border: 1px solid #555; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; width: 150px; }
+        button { padding: 10px; background: #555; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:active { background: #888; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="score">0</div>
-        <p>쿠키를 눌러서 쫀떡을 모으세요!</p>
-        <div id="cookie" style="font-size: 150px;">🍪</div>
-        
-        <div class="item-status">
-            현재 클릭당 파워: <span id="power">1</span>
+<div id="game-world">
+    <div id="player">🍪</div>
+</div>
+
+<div id="ui-panel">
+    <div class="stats" id="stat-text">LV: 1 | HP: 100 | EXP: 0</div>
+    <div class="log" id="game-log">모험을 시작합니다! 방향키를 눌러 이동하세요.</div>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="controls">
+            <div></div><button onclick="move('up')">▲</button><div></div>
+            <button onclick="move('left')">◀</button><button onclick="move('down')">▼</button><button onclick="move('right')">▶</button>
         </div>
-
-        <button id="holder-btn" onclick="checkHolder()">NFT 홀더 인증 (나중에 구현)</button>
+        <button id="action-btn" style="background: #d9534f; width: 80px; height: 80px; border-radius: 50%; display: none;" onclick="battle()">공격!</button>
     </div>
+</div>
 
-    <script>
-        let score = 0;
-        let clickPower = 1;
-        let isHolder = false; // 홀더 여부 변수
+<script>
+    let pPos = { x: 50, y: 50 };
+    let stats = { lv: 1, hp: 100, exp: 0, atk: 10 };
+    let isInBattle = false;
 
-        const scoreDisplay = document.getElementById('score');
-        const cookie = document.getElementById('cookie');
-        const powerDisplay = document.getElementById('power');
+    function log(msg) {
+        const logDiv = document.getElementById('game-log');
+        logDiv.innerHTML += `<div>> ${msg}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
 
-        // 클릭 이벤트
-        cookie.addEventListener('click', () => {
-            score += clickPower;
-            scoreDisplay.innerText = score.toLocaleString();
-            
-            // 클릭 효과 (텍스트 띄우기 등 추가 가능)
-        });
+    function move(dir) {
+        if (isInBattle) return;
 
-        // 나중에 구현할 홀더 인증 함수 (가짜 예시)
-        function checkHolder() {
-            if(!isHolder) {
-                alert("나중에 지갑을 연결하면 파워가 5배가 됩니다!");
-                // 임시로 파워업 시키기 테스트
-                isHolder = true;
-                clickPower = 5;
-                powerDisplay.innerText = clickPower + " (홀더 버프!)";
-            }
+        if (dir === 'up') pPos.y -= 10;
+        if (dir === 'down') pPos.y += 10;
+        if (dir === 'left') pPos.x -= 10;
+        if (dir === 'right') pPos.x += 10;
+
+        // 경계 제한
+        pPos.x = Math.max(5, Math.min(85, pPos.x));
+        pPos.y = Math.max(5, Math.min(85, pPos.y));
+
+        const player = document.getElementById('player');
+        player.style.left = pPos.x + '%';
+        player.style.top = pPos.y + '%';
+
+        // 20% 확률로 몬스터 조우
+        if (Math.random() < 0.2) {
+            startEncounter();
         }
-    </script>
+    }
+
+    function startEncounter() {
+        isInBattle = true;
+        document.getElementById('action-btn').style.display = 'block';
+        log("<span style='color: #ff5252;'>앗! 탄 쿠키 몬스터를 만났다!</span>");
+    }
+
+    function battle() {
+        let damage = stats.atk + Math.floor(Math.random() * 5);
+        log(`몬스터에게 ${damage}의 데미지!`);
+        
+        // 간단한 승리 로직
+        if (Math.random() > 0.5) {
+            log("<span style='color: #4caf50;'>승리! 경험치를 획득했습니다.</span>");
+            stats.exp += 20;
+            if (stats.exp >= 100) {
+                stats.lv++;
+                stats.exp = 0;
+                log("<b>레벨 업!!</b>");
+            }
+            endBattle();
+        } else {
+            log("몬스터의 공격! HP가 5 감소했습니다.");
+            stats.hp -= 5;
+        }
+        updateStats();
+    }
+
+    function endBattle() {
+        isInBattle = false;
+        document.getElementById('action-btn').style.display = 'none';
+        updateStats();
+    }
+
+    function updateStats() {
+        document.getElementById('stat-text').innerText = `LV: ${stats.lv} | HP: ${stats.hp} | EXP: ${stats.exp}`;
+    }
+</script>
+
 </body>
 </html>
