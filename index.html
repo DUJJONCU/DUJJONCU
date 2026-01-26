@@ -22,194 +22,123 @@
             margin: 0; padding: 0;
             font-family: 'Jua', sans-serif;
             color: var(--text-color);
-            overflow: hidden; /* 파티클 효과를 위해 */
+            overflow: hidden;
             display: flex; flex-direction: column;
             min-height: 100vh;
-            background: var(--bg-start); /* fallback for gradient */
+            background: var(--bg-start);
             background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
         }
 
-        /* 파티클 배경 */
         #particles-js {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0; left: 0;
-            z-index: -1;
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: -1;
         }
 
-        /* 헤더 (상단 상태바) */
         #header {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px 0;
-            border-bottom-left-radius: 25px;
-            border-bottom-right-radius: 25px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            position: relative; z-index: 10;
+            background: rgba(255, 255, 255, 0.9); padding: 15px 0; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; z-index: 10;
         }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            max-width: 600px; margin: 0 auto;
-        }
-        .stat-item {
-            text-align: center;
-            font-size: 0.9rem;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 600px; margin: 0 auto; }
+        .stat-item { text-align: center; font-size: 0.9rem; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .stat-icon { font-size: 1.2rem; margin-bottom: 3px; }
         .stat-value { font-size: 1.3rem; font-weight: bold; color: var(--primary-color); }
         .token-balance-text { font-size: 0.8rem; color: #777; margin-top: 5px; }
 
-
-        /* 메인 게임 스테이지 */
         #game-stage {
-            flex: 1;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            position: relative; z-index: 5;
-            padding: 20px;
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            position: relative; z-index: 5; padding: 20px;
         }
 
-        #character-area {
-            position: relative;
-            display: flex; justify-content: center; align-items: center;
-            width: 200px; height: 200px;
-        }
-
+        #character-area { position: relative; display: flex; justify-content: center; align-items: center; width: 200px; height: 200px; }
         #character {
-            font-size: 180px; /* 이모지 크기 */
+            width: 150px; height: 150px; /* 이모지 대신 이미지 크기 */
             filter: drop-shadow(0 15px 10px rgba(0,0,0,0.2));
-            transition: transform 0.1s ease-out;
-            cursor: pointer;
-            user-select: none;
-            position: absolute; /* 아우라와 겹치게 */
+            transition: transform 0.1s ease-out; cursor: pointer; user-select: none; position: absolute;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            background-image: url('https://i.imgur.com/your-doojjonku-image.gif'); /* 여기에 두쫀쿠 GIF 이미지 URL을 넣으세요! */
         }
-        #character:active { transform: scale(1.1); } /* 클릭 시 살짝 커짐 */
+        #character:active { transform: scale(1.1); }
 
-        /* 홀더 등급 아우라 */
         .holder-aura {
-            position: absolute;
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%); /* 황금빛 아우라 */
-            animation: pulse 2s infinite alternate;
-            display: none; /* 기본 숨김 */
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%); animation: pulse 2s infinite alternate;
+            display: none;
         }
         @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.7; }
-            100% { transform: scale(1.05); opacity: 1; }
+            0% { transform: scale(0.95); opacity: 0.7; } 100% { transform: scale(1.05); opacity: 1; }
         }
 
-        /* 튀어오르는 숫자 효과 */
         .floating-score {
-            position: absolute;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #ff6347; /* 토마토색 */
-            pointer-events: none;
-            animation: floatUpFade 1s ease-out forwards;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            position: absolute; font-size: 2rem; font-weight: bold; color: #ff6347; pointer-events: none;
+            animation: floatUpFade 1s ease-out forwards; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
         @keyframes floatUpFade {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
+            0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
         }
 
-        /* 메시지 박스 */
         #message-box {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 20px;
-            margin-top: 20px;
-            font-size: 1.1rem;
-            min-height: 2em;
-            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.9); padding: 10px 20px; border-radius: 20px; margin-top: 20px;
+            font-size: 1.1rem; min-height: 2em; display: flex; align-items: center; justify-content: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        /* 컨트롤 버튼 */
         #controls {
-            display: flex; justify-content: center; gap: 15px;
-            padding: 25px;
-            background: rgba(255, 255, 255, 0.9);
-            border-top-left-radius: 25px;
-            border-top-right-radius: 25px;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
-            position: relative; z-index: 10;
+            display: flex; justify-content: center; gap: 10px; padding: 25px;
+            background: rgba(255, 255, 255, 0.9); border-top-left-radius: 25px; border-top-right-radius: 25px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.05); position: relative; z-index: 10;
         }
         .action-button {
-            border: none;
-            border-radius: 30px;
-            padding: 15px 30px;
-            font-family: 'Jua', sans-serif;
-            font-size: 1.2rem;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            background: var(--button-bg); /* CSS 변수 사용 */
+            border: none; border-radius: 30px; padding: 12px 20px; font-family: 'Jua', sans-serif;
+            font-size: 1rem; color: white; cursor: pointer; transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: var(--button-bg);
         }
-        .action-button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .wallet-button {
-            background: linear-gradient(45deg, #a77dff 0%, #b2ebf2 100%); /* 솔라나 느낌 그라데이션 */
-            margin-top: 10px;
-            font-size: 1rem;
-            padding: 12px 25px;
-        }
-        .wallet-button:active {
-             transform: translateY(2px);
-             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
+        .action-button:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .wallet-button { background: linear-gradient(45deg, #a77dff 0%, #b2ebf2 100%); } /* 솔라나 느낌 그라데이션 */
+        .shop-button { background: linear-gradient(45deg, #fbc02d 0%, #ffeb3b 100%); } /* 상점 버튼 색상 */
 
-        /* 모달 (팝업) 스타일 */
+        /* 모달 (팝업) 스타일 - 지갑, 상점 공용 */
         .modal {
-            display: none;
-            position: fixed;
-            z-index: 100;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.7);
-            justify-content: center; align-items: center;
+            display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center;
         }
         .modal-content {
-            background-color: #fefefe;
-            margin: auto;
-            padding: 30px;
-            border-radius: 15px;
-            width: 80%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            animation: fadeIn 0.3s ease-out;
+            background-color: #fefefe; margin: auto; padding: 25px; border-radius: 15px; width: 85%; max-width: 450px;
+            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: fadeIn 0.3s ease-out;
             color: var(--text-color);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .close-button {
-            color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;
-        }
+        .modal-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; color: var(--primary-color); }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close-button:hover, .close-button:focus { color: #333; text-decoration: none; cursor: pointer; }
         .modal-text { margin-bottom: 20px; font-size: 1.1rem; }
-        .modal-wallet-icon { font-size: 3rem; margin-bottom: 15px; color: #9c27b0; }
-        .wallet-option-button {
+        .modal-option-button {
             display: block; width: 100%; padding: 15px; margin-bottom: 10px;
             background: #e0f2f7; border: 1px solid #b2ebf2; border-radius: 10px;
             font-family: 'Jua', sans-serif; font-size: 1.1rem; cursor: pointer;
             transition: background 0.2s ease;
         }
-        .wallet-option-button:hover { background: #b2ebf2; }
+        .modal-option-button:hover { background: #b2ebf2; }
+
+        /* 아이템 샵 아이템 리스트 */
+        #shop-items-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px;
+        }
+        .shop-item {
+            background: #fff8e1; border: 1px solid #ffcc80; border-radius: 10px;
+            padding: 10px; text-align: center; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s ease;
+        }
+        .shop-item:hover { transform: translateY(-3px); }
+        .item-icon { font-size: 2.5rem; margin-bottom: 5px; }
+        .item-name { font-weight: bold; font-size: 1rem; }
+        .item-price { font-size: 0.9rem; color: var(--primary-color); margin-top: 5px; }
+        .item-price.sold-out { text-decoration: line-through; color: #ccc; }
+        .item-bought { opacity: 0.6; pointer-events: none; } /* 구매된 아이템 */
     </style>
 </head>
 <body>
+
+    <audio id="background-music" loop autoplay>
+        Your browser does not support the audio element.
+    </audio>
 
     <div id="particles-js"></div>
 
@@ -237,7 +166,7 @@
     <div id="game-stage">
         <div id="character-area">
             <div id="holder-aura" class="holder-aura"></div>
-            <div id="character" class="animate__animated animate__bounceIn" onclick="clickChar(event)">🍪</div>
+            <div id="character" class="animate__animated animate__bounceIn" onclick="clickChar(event)"></div>
         </div>
         <div id="message-box" class="animate__animated animate__fadeIn">나의 귀여운 쫀떡쿠를 돌봐줘!</div>
     </div>
@@ -245,17 +174,28 @@
     <div id="controls">
         <button class="action-button" onclick="performAction('feed')">🍙 먹이주기</button>
         <button class="action-button" onclick="performAction('play')">🎾 놀아주기</button>
+        <button class="action-button shop-button" onclick="openShopModal()">🛍️ 상점</button>
         <button class="action-button wallet-button" onclick="openWalletModal()">🔑 지갑 연결</button>
     </div>
 
     <div id="walletModal" class="modal">
         <div class="modal-content">
             <span class="close-button" onclick="closeWalletModal()">&times;</span>
-            <div class="modal-wallet-icon">🔑</div>
+            <div class="modal-title">🔑 지갑 연결</div>
             <div class="modal-text">어떤 지갑으로 연결하시겠어요?</div>
-            <button class="wallet-option-button" onclick="connectSolanaWallet('phantom')">👻 팬텀 지갑</button>
-            <button class="wallet-option-button" onclick="connectSolanaWallet('solflare')">🔥 솔플레어 지갑</button>
-            <button class="wallet-option-button" onclick="connectSolanaWallet('simulation')">🧪 테스트 지갑 (200만개 보유)</button>
+            <button class="modal-option-button" onclick="connectSolanaWallet('phantom')">👻 팬텀 지갑</button>
+            <button class="modal-option-button" onclick="connectSolanaWallet('solflare')">🔥 솔플레어 지갑</button>
+            <button class="modal-option-button" onclick="connectSolanaWallet('simulation')">🧪 테스트 지갑 (200만개 보유)</button>
+        </div>
+    </div>
+
+    <div id="shopModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeShopModal()">&times;</span>
+            <div class="modal-title">🛍️ 아이템 샵</div>
+            <div class="modal-text">내 코인: <span id="my-game-coins">0</span></div>
+            <div id="shop-items-grid">
+                </div>
         </div>
     </div>
 
@@ -265,15 +205,12 @@
         particlesJS('particles-js', {
             "particles": {
                 "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
-                "color": { "value": "#ffdab9" }, /* 복숭아색 파티클 */
+                "color": { "value": "#ffdab9" },
                 "shape": { "type": "circle" },
                 "opacity": { "value": 0.5, "random": false, "anim": { "enable": false } },
                 "size": { "value": 3, "random": true, "anim": { "enable": false } },
                 "line_linked": { "enable": true, "distance": 150, "color": "#f0e68c", "opacity": 0.4, "width": 1 },
-                "move": {
-                    "enable": true, "speed": 6, "direction": "none", "random": false, "straight": false,
-                    "out_mode": "out", "bounce": false, "attract": { "enable": false, "rotateX": 600, "rotateY": 1200 }
-                }
+                "move": { "enable": true, "speed": 6, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false, "attract": { "enable": false, "rotateX": 600, "rotateY": 1200 } }
             },
             "interactivity": {
                 "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": true, "mode": "push" }, "resize": true },
@@ -288,16 +225,38 @@
         let gameState = {
             hunger: 100,
             happiness: 100,
-            solanaTokenBalance: 0,
+            solanaTokenBalance: 0, // 실제 솔라나 코인 보유량
+            gameCoins: 0,          // 게임 내에서 얻는 코인 (아이템 구매용)
             walletAddress: null,
-            tier: 'normal', // normal, silver, gold, diamond
-            tokenMintAddress: "Your_Memecoin_Mint_Address_Here" // <-- 여기에 당신의 밈코인 컨트랙트 주소를 넣으세요!
+            tier: 'normal',
+            tokenMintAddress: "Your_Memecoin_Mint_Address_Here", // <-- 여기에 밈코인 주소를 넣으세요!
+            boughtItems: {} // 구매한 아이템 목록 (예: { hat: true, glasses: false })
         };
+
+        // 아이템 목록
+        const shopItems = [
+            { id: 'hat', name: '귀여운 모자', icon: '🎩', price: 50 },
+            { id: 'glasses', name: '멋진 선글라스', icon: '🕶️', price: 100 },
+            { id: 'scarf', name: '따뜻한 목도리', icon: '🧣', price: 75 },
+            { id: 'shoes', name: '힙한 신발', icon: '👟', price: 120 },
+        ];
 
         const charEl = document.getElementById('character');
         const msgEl = document.getElementById('message-box');
         const holderAuraEl = document.getElementById('holder-aura');
         const walletModal = document.getElementById('walletModal');
+        const shopModal = document.getElementById('shopModal');
+        const bgMusic = document.getElementById('background-music');
+
+        // 배경 음악 자동 재생 시도 (사용자 상호작용 후)
+        document.addEventListener('DOMContentLoaded', () => {
+            // 사용자 상호작용이 있어야 오디오 재생 가능
+            document.body.addEventListener('click', () => {
+                if (bgMusic.paused) {
+                    bgMusic.play().catch(e => console.log("BGM 재생 실패:", e));
+                }
+            }, { once: true });
+        });
 
         // 5초마다 상태 감소
         setInterval(() => {
@@ -312,29 +271,39 @@
             document.getElementById('happiness').innerText = gameState.happiness;
             document.getElementById('token-balance').innerText = formatTokenBalance(gameState.solanaTokenBalance);
             document.getElementById('wallet-address-display').innerText = gameState.walletAddress ? formatAddress(gameState.walletAddress) : "지갑 미연결";
+            if (document.getElementById('my-game-coins')) { // 상점 모달이 열려있을 때만 업데이트
+                document.getElementById('my-game-coins').innerText = gameState.gameCoins.toLocaleString();
+            }
 
-            // 등급별 캐릭터 및 효과
+            // --- 등급별 캐릭터 및 효과 ---
+            // 캐릭터 기본 이미지 설정 (GIF로 변경)
+            charEl.style.backgroundImage = `url('./assets/doojjonku-base.gif')`; // 기본 이미지 경로, 나중에 변경
+            charEl.style.fontSize = '0'; // 이모지 텍스트 숨김
+
+            // 홀더 등급에 따른 특전
             if (gameState.solanaTokenBalance >= 50000000) { // 다이아몬드 (5천만개)
                 gameState.tier = 'diamond';
-                charEl.innerText = "👑✨"; // 왕관+반짝임
+                charEl.style.backgroundImage = `url('./assets/doojjonku-diamond.gif')`; // 다이아몬드 GIF
                 holderAuraEl.style.display = 'block';
                 holderAuraEl.style.background = 'radial-gradient(circle, rgba(173,216,230,0.8) 0%, transparent 70%)'; // 푸른빛 아우라
             } else if (gameState.solanaTokenBalance >= 10000000) { // 골드 (1천만개)
                 gameState.tier = 'gold';
-                charEl.innerText = "🌟"; // 별 쿠키
+                charEl.style.backgroundImage = `url('./assets/doojjonku-gold.gif')`; // 골드 GIF
                 holderAuraEl.style.display = 'block';
                 holderAuraEl.style.background = 'radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%)'; // 황금빛 아우라
             } else if (gameState.solanaTokenBalance >= 1000000) { // 실버 (100만개)
                 gameState.tier = 'silver';
-                charEl.innerText = "🍪"; // 기본 쿠키 유지, 하지만 다른 특전
+                charEl.style.backgroundImage = `url('./assets/doojjonku-silver.gif')`; // 실버 GIF
                 holderAuraEl.style.display = 'none'; // 실버는 아우라 없음
             } else { // 일반
                 gameState.tier = 'normal';
-                if (gameState.hunger < 30) charEl.innerText = "😭";
-                else if (gameState.happiness < 30) charEl.innerText = "😴";
-                else charEl.innerText = "🍪";
+                charEl.style.backgroundImage = `url('./assets/doojjonku-normal.gif')`; // 일반 GIF
                 holderAuraEl.style.display = 'none';
             }
+
+            // 구매한 아이템 적용 (캐릭터 이미지 위에 오버레이) - CSS로 처리할 수도 있고, JS로 이미지 추가할 수도 있습니다.
+            // 이모지를 다시 쓰려면 charEl.innerText = "🍪";
+            // 예: if (gameState.boughtItems.hat) charEl.style.backgroundImage = `url('./assets/doojjonku-hat.gif')`;
 
             // 메시지 업데이트
             if (gameState.walletAddress && !gameState.solanaTokenBalance) {
@@ -350,22 +319,21 @@
             } else {
                 msgEl.innerText = "나의 귀여운 쫀떡쿠를 돌봐줘!";
             }
-            msgEl.className = "animate__animated animate__fadeIn"; // 메시지 페이드인 효과
+            msgEl.className = "animate__animated animate__fadeIn";
+            updateShopItems(); // 상점 아이템도 상태에 따라 업데이트
         }
 
-        // 캐릭터 클릭 (임시로 코인 획득)
+        // 캐릭터 클릭 (게임 내 코인 획득)
         function clickChar(event) {
-            const addedCoins = 10;
-            gameState.solanaTokenBalance += addedCoins; // 테스트용으로 코인 추가
+            const addedCoins = 1; // 코인 획득량 아주 적게 설정!
+            gameState.gameCoins += addedCoins;
             updateGameUI();
             
-            // 클릭 애니메이션
-            charEl.classList.remove('animate__bounce'); // 기존 애니메이션 제거
-            void charEl.offsetWidth; // 리플로우 강제
+            charEl.classList.remove('animate__bounce');
+            void charEl.offsetWidth;
             charEl.classList.add('animate__bounce');
 
-            // 플로팅 텍스트
-            createFloatingText(event.clientX, event.clientY, `+${addedCoins}`);
+            createFloatingText(event.clientX, event.clientY, `+${addedCoins} 💰`);
         }
 
         // 행동 (먹이주기/놀아주기)
@@ -379,7 +347,6 @@
                 msg.innerText = "신나게 놀았어요! 고마워요!";
             }
             updateGameUI();
-            // 메시지 애니메이션
             msg.className = "animate__animated animate__heartBeat";
         }
 
@@ -391,24 +358,20 @@
             el.style.left = x + 'px';
             el.style.top = y + 'px';
             document.body.appendChild(el);
-            setTimeout(() => el.remove(), 1000); // 1초 뒤 제거
+            setTimeout(() => el.remove(), 1000);
         }
 
         // ----------------------------------------
-        // 솔라나 지갑 연동 (Placeholder - 실제 구현 필요)
+        // 솔라나 지갑 연동 (Placeholder)
         // ----------------------------------------
-
-        // 지갑 모달 열기/닫기
         function openWalletModal() { walletModal.style.display = 'flex'; }
         function closeWalletModal() { walletModal.style.display = 'none'; }
 
-        // 솔라나 지갑 연결 함수 (실제 Phantom/Solflare 연동 로직은 여기에)
         async function connectSolanaWallet(walletType) {
             closeWalletModal();
             msgEl.innerText = `지갑 연결 중... (${walletType})`;
             
             if (walletType === 'simulation') {
-                // 시뮬레이션: 200만개 보유한 것으로 가정
                 setTimeout(() => {
                     const simulatedAddress = "SimulatedWallet12345...";
                     gameState.walletAddress = simulatedAddress;
@@ -420,7 +383,8 @@
             }
 
             try {
-                // 실제 팬텀/솔플레어 지갑 연동 로직은 여기에 구현
+                // 실제 Phantom/Solflare 지갑 연동 로직은 여기에 구현됩니다.
+                // 필요한 라이브러리: @solana/web3.js, @solana/wallet-adapter-base, @solana/wallet-adapter-wallets 등
                 // 예시: const provider = await getPhantomProvider();
                 //       await provider.connect();
                 //       const publicKey = provider.publicKey.toString();
@@ -429,10 +393,8 @@
                 //       gameState.solanaTokenBalance = balance;
                 
                 msgEl.innerText = `"${walletType}" 지갑 연결 (실제 연동 코드 필요).`;
-                // 임시로 지갑 연결된 것처럼 보이게 함
-                gameState.walletAddress = "DemoWalletABCDE...";
-                // 임시로 100만개 코인 보유한 것으로 설정
-                gameState.solanaTokenBalance = 1000000;
+                gameState.walletAddress = "DemoWalletABCDE..."; // 임시
+                gameState.solanaTokenBalance = 1000000; // 임시
                 updateGameUI();
 
             } catch (error) {
@@ -444,14 +406,74 @@
             }
         }
 
+        // ----------------------------------------
+        // 아이템 샵 로직
+        // ----------------------------------------
+        function openShopModal() {
+            document.getElementById('my-game-coins').innerText = gameState.gameCoins.toLocaleString();
+            renderShopItems();
+            shopModal.style.display = 'flex';
+        }
+        function closeShopModal() { shopModal.style.display = 'none'; }
+
+        function renderShopItems() {
+            const shopGrid = document.getElementById('shop-items-grid');
+            shopGrid.innerHTML = ''; // 기존 아이템 초기화
+
+            shopItems.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = `shop-item ${gameState.boughtItems[item.id] ? 'item-bought' : ''}`;
+                itemEl.onclick = () => buyItem(item.id);
+                
+                const isBought = gameState.boughtItems[item.id];
+                const canAfford = gameState.gameCoins >= item.price;
+
+                itemEl.innerHTML = `
+                    <div class="item-icon">${item.icon}</div>
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-price ${(!canAfford && !isBought) ? 'sold-out' : ''}">${isBought ? '구매 완료' : `${item.price} 💰`}</div>
+                `;
+                shopGrid.appendChild(itemEl);
+            });
+        }
+
+        function buyItem(itemId) {
+            const item = shopItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (gameState.boughtItems[item.id]) {
+                msgEl.innerText = "이미 구매한 아이템입니다!";
+                return;
+            }
+
+            if (gameState.gameCoins >= item.price) {
+                gameState.gameCoins -= item.price;
+                gameState.boughtItems[item.id] = true;
+                msgEl.innerText = `${item.name}을 구매했습니다!`;
+                
+                // 구매한 아이템 시각적으로 적용 (예: 캐릭터에 이모지 추가)
+                // charEl.innerText += item.icon; // 캐릭터 이모지에 직접 추가하거나
+                // charEl.style.backgroundImage = `url('./assets/doojjonku-with-${item.id}.gif')`; // 새 이미지로 변경
+
+                closeShopModal(); // 구매 후 상점 닫기
+                updateGameUI(); // UI 업데이트 (게임 코인 및 캐릭터)
+            } else {
+                msgEl.innerText = "코인이 부족합니다!";
+            }
+        }
+        
+        // ----------------------------------------
         // 유틸리티 함수
+        // ----------------------------------------
         function formatTokenBalance(amount) {
-            // 실제 토큰의 소수점 자리에 맞춰 조정 필요
+            if (amount === 0) return "0";
+            if (amount >= 1000000000) return (amount / 1000000000).toFixed(1) + "B";
             if (amount >= 1000000) return (amount / 1000000).toFixed(1) + "M";
             if (amount >= 1000) return (amount / 1000).toFixed(1) + "K";
             return amount.toLocaleString();
         }
         function formatAddress(address) {
+            if (!address) return "지갑 미연결";
             return address.substring(0, 4) + '...' + address.substring(address.length - 4);
         }
 
