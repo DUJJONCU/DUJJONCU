@@ -1,40 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>두쫀쿠 서바이버: 필살기 업데이트</title>
+    <title>두쫀쿠 서바이버 - 이동 확인용</title>
     <style>
         body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; }
         canvas { display: block; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; }
-        .stat { font-size: 16px; margin-bottom: 8px; text-shadow: 2px 2px 2px #000; }
-        #hpBar, #ultBar { width: 200px; height: 12px; background: #444; border: 2px solid #fff; margin-top: 4px; border-radius: 6px; overflow: hidden; }
-        #hpInner { height: 100%; width: 100%; background: #ff4444; transition: 0.1s; }
-        #ultInner { height: 100%; width: 0%; background: #ffee00; box-shadow: 0 0 10px #ffaa00; transition: 0.2s; }
-        #ultReady { color: #ffee00; font-weight: bold; display: none; animation: blink 0.5s infinite; }
-        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
-        #levelUp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                   background: rgba(0,0,0,0.9); padding: 30px; color: white; display: none; text-align: center; border: 3px solid #fff; }
-        .btn { background: #333; color: white; padding: 15px; margin: 10px; cursor: pointer; border: 2px solid #fff; border-radius: 8px; }
-        .btn:hover { background: #555; }
+        #guide { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #aaa; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div class="stat">시간: <span id="timer">00:00</span></div>
-        <div class="stat">HP <div id="hpBar"><div id="hpInner"></div></div></div>
-        <div class="stat">필살기 (SPACE) <div id="ultBar"><div id="ultInner"></div></div>
-            <span id="ultReady">READY!</span>
-        </div>
-        <div class="stat">레벨: <span id="level">1</span> | 점수: <span id="score">0</span></div>
+        <div style="font-size: 20px;">위치: X: <span id="posX">0</span>, Y: <span id="posY">0</span></div>
+        <div style="color: yellow;">W, A, S, D 키로 움직여보세요!</div>
     </div>
-
-    <div id="levelUp">
-        <h2>LEVEL UP! 스킬 강화</h2>
-        <div class="btn" onclick="upgrade('gun')">총 (공격력 증가)</div>
-        <div class="btn" onclick="upgrade('fire')">연사 (속도 증가)</div>
-        <div class="btn" onclick="upgrade('water')">체력 재생 증가</div>
-    </div>
-
+    <div id="guide">화면을 한 번 클릭해야 조작이 시작됩니다.</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -43,199 +23,81 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let score = 0, level = 1, exp = 0, hp = 100, ult = 0, startTime = Date.now(), isPaused = false;
-        const player = { x: 0, y: 0, size: 20, speed: 4 };
-        const camera = { x: 0, y: 0 };
-        const enemies = [], bullets = [], orbs = [], items = [];
-        const skills = { gun: 1, fire: 0, water: 0 };
+        const player = { x: 0, y: 0, size: 25, speed: 5 };
         const keys = {};
 
-        window.onkeydown = e => {
-            keys[e.key.toLowerCase()] = true;
-            if (e.code === 'Space' && ult >= 100) useUltimate();
-        };
-        window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+        // 키보드 입력 감지
+        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-        function upgrade(type) {
-            skills[type]++;
-            isPaused = false;
-            document.getElementById('levelUp').style.display = 'none';
-        }
+        function update() {
+            let dx = 0;
+            let dy = 0;
 
-        // 필살기 발동
-        function useUltimate() {
-            ult = 0;
-            document.getElementById('ultInner').style.width = "0%";
-            document.getElementById('ultReady').style.display = 'none';
-            
-            // 화면 효과 (섬광)
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 화면 내 모든 적 제거
-            enemies.forEach((e, i) => {
-                orbs.push({x: e.x, y: e.y});
-                score += 10;
-            });
-            enemies.length = 0;
-            document.getElementById('score').innerText = score;
-        }
-
-        function handleMovement() {
-            let dx = 0, dy = 0;
             if (keys['w'] || keys['arrowup']) dy -= 1;
             if (keys['s'] || keys['arrowdown']) dy += 1;
             if (keys['a'] || keys['arrowleft']) dx -= 1;
             if (keys['d'] || keys['arrowright']) dx += 1;
 
+            // 대각선 이동 속도 보정
             if (dx !== 0 && dy !== 0) {
                 const len = Math.sqrt(dx * dx + dy * dy);
                 dx /= len; dy /= len;
             }
+
             player.x += dx * player.speed;
             player.y += dy * player.speed;
-        }
 
-        setInterval(() => {
-            if (isPaused) return;
-            const ang = Math.random() * Math.PI * 2;
-            const dist = 700;
-            const elapsed = (Date.now() - startTime) / 1000;
-            enemies.push({
-                x: player.x + Math.cos(ang) * dist,
-                y: player.y + Math.sin(ang) * dist,
-                hp: 2 + Math.floor(elapsed / 20),
-                size: 15,
-                color: `hsl(${elapsed * 10 % 360}, 70%, 50%)`
-            });
-        }, 800);
-
-        function update() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            document.getElementById('timer').innerText = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
-
-            handleMovement();
-            camera.x = player.x - canvas.width/2;
-            camera.y = player.y - canvas.height/2;
-
-            // 체력 자연 회복 (water 스킬 비례)
-            hp = Math.min(100, hp + (0.01 + skills.water * 0.01));
-            document.getElementById('hpInner').style.width = hp + "%";
-
-            enemies.forEach((e, ei) => {
-                const ang = Math.atan2(player.y - e.y, player.x - e.x);
-                e.x += Math.cos(ang) * 1.5;
-                e.y += Math.sin(ang) * 1.5;
-
-                if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
-                    hp -= 0.2;
-                    if (hp <= 0) { alert("Game Over!"); location.reload(); }
-                }
-            });
-
-            // 총알 생성 (fire 스킬로 속도 조절)
-            const shootInterval = Math.max(10, 30 - skills.fire * 5);
-            if (Math.floor(Date.now()/10) % shootInterval === 0 && enemies.length > 0) {
-                const target = enemies[0];
-                const ang = Math.atan2(target.y - player.y, target.x - player.x);
-                bullets.push({ x: player.x, y: player.y, vx: Math.cos(ang) * 8, vy: Math.sin(ang) * 8 });
-            }
-
-            bullets.forEach((b, bi) => {
-                b.x += b.vx; b.y += b.vy;
-                enemies.forEach((e, ei) => {
-                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.size) {
-                        e.hp -= skills.gun;
-                        bullets.splice(bi, 1);
-                        if (e.hp <= 0) {
-                            // 확률적으로 회복약 드롭 (10%)
-                            if (Math.random() < 0.1) items.push({x: e.x, y: e.y, type: 'heal'});
-                            orbs.push({x: e.x, y: e.y});
-                            enemies.splice(ei, 1);
-                            score += 10;
-                            // 필살기 게이지 증가
-                            ult = Math.min(100, ult + 2);
-                            document.getElementById('ultInner').style.width = ult + "%";
-                            if (ult >= 100) document.getElementById('ultReady').style.display = 'inline';
-                            document.getElementById('score').innerText = score;
-                        }
-                    }
-                });
-            });
-
-            // 아이템(회복) 획득
-            items.forEach((it, i) => {
-                if (Math.hypot(player.x - it.x, player.y - it.y) < 30) {
-                    if (it.type === 'heal') hp = Math.min(100, hp + 20);
-                    items.splice(i, 1);
-                }
-            });
-
-            orbs.forEach((o, oi) => {
-                if (Math.hypot(player.x - o.x, player.y - o.y) < 40) {
-                    o.x += (player.x - o.x) * 0.1; o.y += (player.y - o.y) * 0.1;
-                    if (Math.hypot(player.x - o.x, player.y - o.y) < 10) {
-                        orbs.splice(oi, 1);
-                        exp++;
-                        if (exp >= level * 5) {
-                            level++; exp = 0; isPaused = true;
-                            document.getElementById('levelUp').style.display = 'block';
-                            document.getElementById('level').innerText = level;
-                        }
-                    }
-                }
-            });
+            // UI에 좌표 표시
+            document.getElementById('posX').innerText = Math.floor(player.x);
+            document.getElementById('posY').innerText = Math.floor(player.y);
         }
 
         function draw() {
+            // 배경 청소
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 그리드
-            ctx.strokeStyle = '#222';
-            for(let i=0; i<canvas.width; i+=50) {
-                ctx.beginPath(); ctx.moveTo(i - (camera.x % 50), 0); ctx.lineTo(i - (camera.x % 50), canvas.height); ctx.stroke();
+            // --- 격자 배경 그리기 (이동을 시각적으로 확인하는 핵심!) ---
+            const gridSize = 100;
+            const offsetX = -player.x % gridSize;
+            const offsetY = -player.y % gridSize;
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+
+            // 세로선
+            for (let x = offsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            // 가로선
+            for (let y = offsetY; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
             }
 
-            // 아이템 (빨간색 십자가 모양 대용)
-            items.forEach(it => {
-                ctx.fillStyle = '#ff0000';
-                ctx.fillRect(it.x - camera.x - 5, it.y - camera.y - 12, 10, 24);
-                ctx.fillRect(it.x - camera.x - 12, it.y - camera.y - 5, 24, 10);
-            });
-
-            enemies.forEach(e => {
-                ctx.fillStyle = e.color;
-                ctx.beginPath(); ctx.arc(e.x - camera.x, e.y - camera.y, e.size, 0, Math.PI*2); ctx.fill();
-            });
-
-            bullets.forEach(b => {
-                ctx.fillStyle = '#ffee00';
-                ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, 4, 0, Math.PI*2); ctx.fill();
-            });
-
-            orbs.forEach(o => {
-                ctx.fillStyle = '#00ffff';
-                ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 4, 0, Math.PI*2); ctx.fill();
-            });
-
-            // 플레이어
-            ctx.fillStyle = '#00ffcc';
-            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size, 0, Math.PI*2); ctx.fill();
-            // 필살기 준비 완료 시 오라 효과
-            if (ult >= 100) {
-                ctx.strokeStyle = '#ffee00';
-                ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size + 5, 0, Math.PI*2); ctx.stroke();
-            }
+            // --- 플레이어 그리기 (화면 정중앙 고정) ---
+            ctx.fillStyle = '#00ffcc'; // 두쫀쿠 색상
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ffcc';
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
-        function gameLoop() {
-            if (!isPaused) update();
+        function loop() {
+            update();
             draw();
-            requestAnimationFrame(gameLoop);
+            requestAnimationFrame(loop);
         }
-        gameLoop();
+
+        loop();
     </script>
 </body>
 </html>
