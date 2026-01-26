@@ -3,61 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>두쫀쿠 서바이버: 하이퍼</title>
+    <title>DooJjonKu Hyper</title>
     <style>
-        /* 확대 및 스크롤 완전 방지 */
         * { touch-action: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; }
         canvas { display: block; }
 
+        /* 캐릭터 선택 창 */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 1000;
             display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
         }
-        .class-list { display: flex; gap: 15px; margin-top: 20px; }
-        .class-card { background: #222; border: 2px solid #444; border-radius: 12px; padding: 15px; width: 140px; text-align: center; cursor: pointer; }
-        .class-card:active { transform: scale(0.95); border-color: #00ffcc; }
+        .class-list { display: flex; gap: 10px; margin-top: 20px; }
+        .class-card { background: #222; border: 1px solid #444; border-radius: 10px; padding: 10px; width: 110px; text-align: center; cursor: pointer; font-size: 13px; }
 
-        #ui-top { position: absolute; top: 15px; left: 20px; color: white; pointer-events: none; z-index: 10; }
-        #stage-info { font-size: 20px; color: #ffee00; font-weight: bold; }
-        #exp-bar { width: 200px; height: 8px; background: #333; border: 1px solid #fff; margin-top: 5px; }
+        /* UI 레이아웃 */
+        #ui-left { position: absolute; top: 15px; left: 20px; color: white; pointer-events: none; z-index: 10; }
+        #ui-right { position: absolute; top: 15px; right: 20px; color: #ffee00; font-weight: bold; font-size: 18px; pointer-events: none; z-index: 10; }
+        #exp-bar { width: 150px; height: 6px; background: #333; border: 1px solid #fff; margin-top: 5px; }
         #exp-inner { width: 0%; height: 100%; background: #00ccff; }
 
-        #joy-base { position: absolute; bottom: 40px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
-        #joy-stick { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(0,255,204,0.4); border-radius: 50%; }
-        
+        /* 컨트롤러 */
+        #joy-base { position: absolute; bottom: 40px; left: 50px; width: 90px; height: 90px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+        #joy-stick { position: absolute; top: 20px; left: 20px; width: 50px; height: 50px; background: rgba(0,255,204,0.3); border-radius: 50%; }
         #ult-btn { 
-            position: absolute; bottom: 45px; right: 60px; width: 85px; height: 85px; 
-            background: rgba(255,68,68,0.1); border: 4px solid #ff4444; border-radius: 50%; 
-            display: flex; justify-content: center; align-items: center; color: white; font-weight: bold;
-            opacity: 0.3; transition: 0.1s;
+            position: absolute; bottom: 45px; right: 60px; width: 80px; height: 80px; 
+            background: rgba(255,68,68,0.1); border: 2px solid #ff4444; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 12px;
+            opacity: 0.2; transition: 0.1s;
         }
-        #ult-btn.ready { opacity: 1; background: #ff4444; box-shadow: 0 0 20px #ff4444; }
+        #ult-btn.ready { opacity: 1; background: #ff4444; box-shadow: 0 0 15px #ff4444; }
 
-        #level-up-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; gap: 15px; }
-        .skill-card { background: #222; color: white; padding: 20px; width: 180px; border: 2px solid #00ffcc; border-radius: 10px; text-align: center; }
+        #level-up-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; gap: 10px; }
+        .skill-card { background: #111; color: white; padding: 15px; width: 150px; border: 1px solid #00ffcc; border-radius: 8px; text-align: center; font-size: 14px; }
     </style>
 </head>
 <body>
     <div id="start-screen">
-        <h1>클래스 선택</h1>
+        <h2 style="color:#00ffcc">DooJjonKu Survivors</h2>
         <div class="class-list">
-            <div class="class-card" onclick="startGame('warrior')"><h3>전사</h3><p>근접 광역</p></div>
-            <div class="class-card" onclick="startGame('archer')"><h3>궁수</h3><p>빠른 연사</p></div>
-            <div class="class-card" onclick="startGame('wizard')"><h3>마법사</h3><p>강력한 폭발</p></div>
+            <div class="class-card" onclick="startGame('warrior')">전사<br>(근접)</div>
+            <div class="class-card" onclick="startGame('archer')">궁수<br>(연사)</div>
+            <div class="class-card" onclick="startGame('wizard')">법사<br>(폭발)</div>
         </div>
     </div>
 
-    <div id="ui-top">
-        <div id="stage-info">STAGE <span id="cur-stage">1</span> (<span id="kill-count">0</span> / 100)</div>
+    <div id="ui-left">
+        <div id="stage-text" style="font-weight:bold; color:#ffee00;">STAGE 1</div>
         <div id="exp-bar"><div id="exp-inner"></div></div>
     </div>
 
+    <div id="ui-right">
+        KILLS: <span id="kill-count">0</span> / <span id="kill-goal">100</span>
+    </div>
+
     <div id="level-up-ui">
-        <div class="skill-card" onclick="selectSkill('dmg')">공격력 강화</div>
-        <div class="skill-card" onclick="selectSkill('spd')">이동속도 강화</div>
-        <div class="skill-card" onclick="selectSkill('fire')">연사속도 강화</div>
+        <div class="skill-card" onclick="selectSkill('dmg')">사거리/데미지 UP</div>
+        <div class="skill-card" onclick="selectSkill('spd')">이동속도 UP</div>
+        <div class="skill-card" onclick="selectSkill('fire')">연사속도 UP</div>
     </div>
 
     <div id="joy-base"><div id="joy-stick"></div></div>
@@ -68,45 +72,36 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let stage = 1, lv = 1, exp = 0, expNext = 5, totalKills = 0, stageKills = 0, isPaused = true, ultGauge = 0;
-        let killGoal = 100;
+        let stage = 1, lv = 1, exp = 0, expNext = 5, stageKills = 0, killGoal = 100, isPaused = true, ultGauge = 0;
         
         const classData = {
-            warrior: { name: 'Warrior', size: 10, hp: 200, spd: 3.5, range: 70, fireRate: 500, color: '#00ffcc' },
-            archer: { name: 'Archer', size: 8, hp: 100, spd: 5, range: 300, fireRate: 350, color: '#ffee00' },
-            wizard: { name: 'Wizard', size: 8, hp: 80, spd: 3, range: 450, fireRate: 1000, color: '#ff00ff' }
+            warrior: { name: 'Warrior', size: 5, hp: 200, spd: 2.0, range: 45, fireRate: 500, color: '#00ffcc' },
+            archer: { name: 'Archer', size: 4, hp: 100, spd: 2.8, range: 200, fireRate: 350, color: '#ffee00' },
+            wizard: { name: 'Wizard', size: 4, hp: 80, spd: 1.8, range: 300, fireRate: 1000, color: '#ff00ff' }
         };
 
-        let pClass = null;
-        let lastAngle = 0; // 마지막 이동 방향 기억
-        const player = { x: 0, y: 0 };
-        const camera = { x: 0, y: 0 };
+        let pClass = null, lastAngle = 0;
+        const player = { x: 0, y: 0 }, camera = { x: 0, y: 0 };
         const enemies = [], bullets = [], orbs = [];
         let moveX = 0, moveY = 0, isJoy = false;
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // 확대 방지용 이벤트 리스너 (강력 조치)
-        document.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) e.preventDefault();
-        }, { passive: false });
-
+        // 필살기 연타 확대 방지
         const ultBtn = document.getElementById('ult-btn');
         ultBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 연타 시 확대 방지
+            e.preventDefault();
             if (ultGauge < 100) return;
-            ultGauge = 0;
-            ultBtn.classList.remove('ready');
+            ultGauge = 0; ultBtn.classList.remove('ready');
             enemies.forEach(e => e.hp -= 100);
-            ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white"; ctx.fillRect(0,0,canvas.width, canvas.height);
         });
 
         function startGame(type) {
             pClass = { ...classData[type] };
             document.getElementById('start-screen').style.display = 'none';
-            isPaused = false;
-            loop();
+            isPaused = false; loop();
         }
 
         const joyBase = document.getElementById('joy-base');
@@ -115,103 +110,91 @@
             if (!isJoy) return;
             const t = e.touches ? e.touches[0] : e;
             const r = joyBase.getBoundingClientRect();
-            const dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
-            const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 50);
+            const dx = t.clientX - (r.left + 45), dy = t.clientY - (r.top + 45);
+            const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 45);
             const ang = Math.atan2(dy, dx);
-            if (dist > 10) lastAngle = ang; // 이동 방향 업데이트
-            const sx = Math.cos(ang) * dist, sy = Math.sin(ang) * dist;
-            joyStick.style.transform = `translate(${sx}px, ${sy}px)`;
-            moveX = sx / 50; moveY = sy / 50;
+            if (dist > 5) lastAngle = ang;
+            joyStick.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px)`;
+            moveX = (Math.cos(ang) * dist) / 45; moveY = (Math.sin(ang) * dist) / 45;
         };
         joyBase.addEventListener('touchstart', (e) => { e.preventDefault(); isJoy = true; });
-        window.addEventListener('touchmove', (e) => { if (isJoy) updateJoy(e); });
+        window.addEventListener('touchmove', updateJoy);
         window.addEventListener('touchend', () => { isJoy = false; moveX = 0; moveY = 0; joyStick.style.transform = 'translate(0,0)'; });
 
         function selectSkill(type) {
-            if (type === 'dmg') pClass.range += 20;
-            if (type === 'spd') pClass.spd += 0.5;
+            if (type === 'dmg') pClass.range += 15;
+            if (type === 'spd') pClass.spd += 0.3;
             if (type === 'fire') pClass.fireRate *= 0.85;
-            isPaused = false;
-            document.getElementById('level-up-ui').style.display = 'none';
+            isPaused = false; document.getElementById('level-up-ui').style.display = 'none';
         }
 
         let lastShot = 0;
         function update() {
             if (isPaused) return;
+
+            // 이동 및 카메라
             player.x += moveX * pClass.spd;
             player.y += moveY * pClass.spd;
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
 
-            // 스테이지 관리
+            // 스테이지 자동 전환 로직
             if (stageKills >= killGoal) {
                 stage++;
                 stageKills = 0;
-                if (stage === 2) killGoal = 300;
-                if (stage === 3) killGoal = 500;
-                document.getElementById('cur-stage').innerText = stage;
+                killGoal = stage === 2 ? 300 : (stage === 3 ? 500 : 1000);
+                document.getElementById('stage-text').innerText = "STAGE " + stage;
+                document.getElementById('kill-goal').innerText = killGoal;
             }
             document.getElementById('kill-count').innerText = stageKills;
 
-            // 적 스폰 (난이도 급상승)
-            const maxEnemies = 15 + (stage * 15);
-            if (enemies.length < maxEnemies) {
+            // 적 생성
+            if (enemies.length < 20 + (stage * 10)) {
                 const ang = Math.random() * Math.PI * 2;
                 enemies.push({
-                    x: player.x + Math.cos(ang) * 600,
-                    y: player.y + Math.sin(ang) * 600,
-                    hp: 1 + (stage * 0.8),
-                    speed: 1.2 + (stage * 0.4) + Math.random(), // 몹 속도 상향
-                    size: 7,
-                    color: `hsl(${stage * 50 % 360}, 70%, 50%)`
+                    x: player.x + Math.cos(ang) * 500,
+                    y: player.y + Math.sin(ang) * 500,
+                    hp: 1 + (stage * 0.5),
+                    speed: 0.8 + (stage * 0.2) + Math.random() * 0.5,
+                    size: 3, // 몹 크기 축소
+                    color: `hsl(${stage * 60 % 360}, 70%, 60%)`
                 });
             }
 
-            // 공격 로직 (이동 방향 우선 조준)
+            // 공격
             if (Date.now() - lastShot > pClass.fireRate) {
                 let targetAng = lastAngle;
-                const nearEnemy = enemies.find(e => Math.hypot(e.x - player.x, e.y - player.y) < pClass.range);
-                
-                if (nearEnemy) {
-                    targetAng = Math.atan2(nearEnemy.y - player.y, nearEnemy.x - player.x);
-                }
+                const near = enemies.find(e => Math.hypot(e.x - player.x, e.y - player.y) < pClass.range);
+                if (near) targetAng = Math.atan2(near.y - player.y, near.x - player.x);
 
                 if (pClass.name === 'Warrior') {
-                    enemies.forEach(e => {
-                        if (Math.hypot(e.x - player.x, e.y - player.y) < pClass.range) e.hp -= 2;
-                    });
+                    enemies.forEach(e => { if (Math.hypot(e.x - player.x, e.y - player.y) < pClass.range) e.hp -= 2; });
                 } else {
-                    bullets.push({ 
-                        x: player.x, y: player.y, 
-                        vx: Math.cos(targetAng) * 10, vy: Math.sin(targetAng) * 10, 
-                        size: pClass.name === 'Wizard' ? 12 : 3 
-                    });
+                    bullets.push({ x: player.x, y: player.y, vx: Math.cos(targetAng) * 8, vy: Math.sin(targetAng) * 8, size: pClass.name === 'Wizard' ? 10 : 2 });
                 }
                 lastShot = Date.now();
             }
 
+            // 적 및 총알 처리
             enemies.forEach((e, ei) => {
                 const ang = Math.atan2(player.y - e.y, player.x - e.x);
-                e.x += Math.cos(ang) * e.speed;
-                e.y += Math.sin(ang) * e.speed;
+                e.x += Math.cos(ang) * e.speed; e.y += Math.sin(ang) * e.speed;
 
                 bullets.forEach((b, bi) => {
-                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.size + b.size) {
-                        e.hp -= 1; bullets.splice(bi, 1);
-                    }
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.size + b.size) { e.hp -= 1; bullets.splice(bi, 1); }
                 });
 
                 if (e.hp <= 0) {
-                    orbs.push({ x: e.x, y: e.y });
-                    stageKills++;
-                    ultGauge = Math.min(100, ultGauge + 1.5);
+                    orbs.push({ x: e.x, y: e.y }); stageKills++;
+                    ultGauge = Math.min(100, ultGauge + 1);
                     if (ultGauge >= 100) ultBtn.classList.add('ready');
                     enemies.splice(ei, 1);
                 }
             });
 
+            // 경험치 획득
             orbs.forEach((o, oi) => {
-                if (Math.hypot(player.x - o.x, player.y - o.y) < 40) {
+                if (Math.hypot(player.x - o.x, player.y - o.y) < 30) {
                     orbs.splice(oi, 1); exp++;
                     if (exp >= expNext) {
                         lv++; exp = 0; expNext += 5; isPaused = true;
@@ -220,27 +203,21 @@
                     document.getElementById('exp-inner').style.width = (exp / expNext * 100) + "%";
                 }
             });
-
-            bullets.forEach((b, i) => { 
-                b.x += b.vx; b.y += b.vy; 
-                if (Math.hypot(b.x - player.x, b.y - player.y) > 800) bullets.splice(i, 1); 
-            });
+            bullets.forEach((b, i) => { b.x += b.vx; b.y += b.vy; if (Math.hypot(b.x - player.x, b.y - player.y) > 600) bullets.splice(i, 1); });
         }
 
         function draw() {
             ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#151515';
-            for (let x = -camera.x % 100; x < canvas.width; x += 100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-            for (let y = -camera.y % 100; y < canvas.height; y += 100) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+            ctx.strokeStyle = '#111';
+            for (let x = -camera.x % 60; x < canvas.width; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+            for (let y = -camera.y % 60; y < canvas.height; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
 
-            orbs.forEach(o => { ctx.fillStyle = '#00ccff'; ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 2, 0, Math.PI * 2); ctx.fill(); });
+            orbs.forEach(o => { ctx.fillStyle = '#00ccff'; ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 1.5, 0, Math.PI * 2); ctx.fill(); });
             enemies.forEach(e => { ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.x - camera.x, e.y - camera.y, e.size, 0, Math.PI * 2); ctx.fill(); });
             bullets.forEach(b => { ctx.fillStyle = '#ffee00'; ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, b.size, 0, Math.PI * 2); ctx.fill(); });
             
             ctx.fillStyle = pClass.color;
             ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, pClass.size, 0, Math.PI * 2); ctx.fill();
-            
-            // 전사 가이드라인
             if (pClass.name === 'Warrior') {
                 ctx.strokeStyle = 'rgba(0,255,204,0.1)'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, pClass.range, 0, Math.PI*2); ctx.stroke();
             }
