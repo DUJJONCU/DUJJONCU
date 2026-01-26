@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>두쫀쿠 미니게임</title>
+    <style>
+        body { margin: 0; text-align: center; background-color: #fdf5e6; font-family: 'Arial', sans-serif; overflow: hidden; }
+        #game-container { margin-top: 50px; }
+        #score { font-size: 2rem; color: #8b4513; font-weight: bold; }
+        #cookie { 
+            width: 200px; cursor: pointer; transition: transform 0.1s; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        #cookie:active { transform: scale(0.9); }
+        .item-status { margin-top: 20px; color: #d2691e; }
+        #holder-btn { margin-top: 30px; padding: 10px 20px; background: #ff9800; border: none; border-radius: 20px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="score">0</div>
+        <p>쿠키를 눌러서 쫀떡을 모으세요!</p>
+        <div id="cookie" style="font-size: 150px;">🍪</div>
+        
+        <div class="item-status">
+            현재 클릭당 파워: <span id="power">1</span>
+        </div>
+
+        <button id="holder-btn" onclick="checkHolder()">NFT 홀더 인증 (나중에 구현)</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let clickPower = 1;
+        let isHolder = false; // 홀더 여부 변수
+
+        const scoreDisplay = document.getElementById('score');
+        const cookie = document.getElementById('cookie');
+        const powerDisplay = document.getElementById('power');
+
+        // 클릭 이벤트
+        cookie.addEventListener('click', () => {
+            score += clickPower;
+            scoreDisplay.innerText = score.toLocaleString();
+            
+            // 클릭 효과 (텍스트 띄우기 등 추가 가능)
+        });
+
+        // 나중에 구현할 홀더 인증 함수 (가짜 예시)
+        function checkHolder() {
+            if(!isHolder) {
+                alert("나중에 지갑을 연결하면 파워가 5배가 됩니다!");
+                // 임시로 파워업 시키기 테스트
+                isHolder = true;
+                clickPower = 5;
+                powerDisplay.innerText = clickPower + " (홀더 버프!)";
+            }
+        }
+    </script>
+</body>
+</html>
