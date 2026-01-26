@@ -3,192 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DooJjonKu Pro</title>
+    <title>DooJjonKu: Pure Code Edition</title>
     <style>
         * { touch-action: none; user-select: none; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
-        body { margin: 0; overflow: hidden; background: #050505; color: #fff; }
+        body { margin: 0; overflow: hidden; background: #000; color: #fff; }
         canvas { display: block; image-rendering: pixelated; }
+        
+        #ui { position: absolute; inset: 0; pointer-events: none; padding: 20px; }
+        #boss-warn { 
+            position: fixed; top: 30%; left: 0; width: 100%; background: rgba(255,0,0,0.7); 
+            color: white; text-align: center; padding: 20px; font-size: 40px; font-weight: 900;
+            display: none; animation: flash 0.5s infinite; z-index: 100;
+        }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-        /* 인터페이스 */
-        #ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 25px; }
-        .orb-wrap { position: absolute; bottom: 30px; display: flex; gap: 20px; width: calc(100% - 50px); justify-content: space-between; }
-        .orb { width: 90px; height: 90px; border-radius: 50%; border: 3px solid #333; overflow: hidden; background: #111; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #hp-fill { position: absolute; bottom: 0; width: 100%; height: 100%; background: linear-gradient(0deg, #800, #f00); opacity: 0.8; transition: height 0.3s; }
-        #mp-fill { position: absolute; bottom: 0; width: 100%; height: 0%; background: linear-gradient(0deg, #004, #0af); opacity: 0.8; transition: height 0.3s; }
-        
-        #stats { text-align: center; color: #ffd700; font-weight: 900; text-shadow: 2px 2px 4px #000; }
-        
-        /* 시작 화면 */
-        #start-screen { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .start-btn { padding: 15px 50px; background: #800; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 18px; box-shadow: 0 0 15px #800; }
+        .orb-group { position: absolute; bottom: 30px; display: flex; width: calc(100% - 40px); justify-content: space-between; }
+        .orb { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #444; overflow: hidden; background: #111; position: relative; }
+        .fill { position: absolute; bottom: 0; width: 100%; transition: height 0.3s; }
     </style>
 </head>
 <body>
 
-    <div id="start-screen">
-        <h1 style="letter-spacing: 10px; color: #fff; margin-bottom: 30px;">DOOJJONKU</h1>
-        <button class="start-btn" onclick="startGame()">진입하기</button>
-        <p style="color: #555; margin-top: 20px; font-size: 12px;">지갑 보유 시 능력치 2배 적용됨 (가상연동)</p>
-    </div>
-
+    <div id="boss-warn">WARNING: BOSS APPROACHING</div>
+    
     <div id="ui">
-        <div id="stats">
-            <div style="font-size: 24px;">KILLS: <span id="k-count">0</span></div>
-            <div style="font-size: 14px; opacity: 0.7;">LEVEL: <span id="l-count">1</span></div>
-        </div>
-        <div class="orb-wrap">
-            <div class="orb"><div id="hp-fill"></div></div>
-            <div class="orb"><div id="mp-fill"></div></div>
+        <div id="stats" style="color:gold; font-size:18px;">KILLS: <span id="kill-count">0</span></div>
+        <div class="orb-group">
+            <div class="orb"><div id="hp-fill" class="fill" style="background: #a00; height: 100%;"></div></div>
+            <div class="orb"><div id="mp-fill" class="fill" style="background: #06a; height: 0%;"></div></div>
         </div>
     </div>
 
-    <canvas id="c"></canvas>
+    <canvas id="game"></canvas>
 
     <script>
-        const canvas = document.getElementById('c');
+        const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        let player, isLive = false, kills = 0, hp = 100, mp = 0, lv = 1;
-        let enemies = [], bullets = [], particles = [], shake = 0;
-        let joy = { startX: 0, startY: 0, currX: 0, currY: 0, active: false };
+        let player, isLive = true, kills = 0, hp = 100, mp = 0, tick = 0;
+        let enemies = [], particles = [], shake = 0, isBossMode = false;
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        function startGame() {
-            document.getElementById('start-screen').style.display = 'none';
-            player = { x: 0, y: 0, vx: 0, vy: 0, spd: 3, tick: 0 };
-            isLive = true;
-            loop();
+        player = { x: 0, y: 0, vx: 0, vy: 0, spd: 3 };
+
+        // --- 사운드 생성기 (코드로 만드는 효과음) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, duration, type = 'sawtooth') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
         }
 
-        // 조작 시스템
-        window.addEventListener('touchstart', e => {
-            joy.active = true;
-            joy.startX = e.touches[0].clientX;
-            joy.startY = e.touches[0].clientY;
-        });
+        // --- 조작 (터치 드래그) ---
+        let touch = { active: false, x: 0, y: 0 };
+        window.addEventListener('touchstart', e => { touch.active = true; touch.x = e.touches[0].clientX; touch.y = e.touches[0].clientY; audioCtx.resume(); });
         window.addEventListener('touchmove', e => {
-            if(!joy.active) return;
-            joy.currX = e.touches[0].clientX;
-            joy.currY = e.touches[0].clientY;
-            const dx = joy.currX - joy.startX, dy = joy.currY - joy.startY;
-            const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
-            const ang = Math.atan2(dy, dx);
+            if(!touch.active) return;
+            const dx = e.touches[0].clientX - touch.x, dy = e.touches[0].clientY - touch.y;
+            const ang = Math.atan2(dy, dx); const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
             player.vx = Math.cos(ang) * (dist/50) * player.spd;
             player.vy = Math.sin(ang) * (dist/50) * player.spd;
         });
-        window.addEventListener('touchend', () => { joy.active = false; player.vx = 0; player.vy = 0; });
+        window.addEventListener('touchend', () => { touch.active = false; player.vx = 0; player.vy = 0; });
+
+        // --- 캐릭터 그리기 로직 (스프라이트 대체) ---
+        function drawWarrior(x, y, t, move) {
+            const bob = Math.sin(t * 0.2) * 4;
+            const walk = move ? Math.sin(t * 0.4) * 8 : 0;
+            ctx.save(); ctx.translate(x, y);
+            // 그림자
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, 20, 15, 7, 0, 0, Math.PI*2); ctx.fill();
+            // 몸통
+            ctx.fillStyle = '#555'; ctx.fillRect(-12, -15 + bob, 24, 25);
+            ctx.fillStyle = '#ffdbac'; ctx.fillRect(-8, -25 + bob, 16, 12); // 얼굴
+            ctx.fillStyle = '#000'; ctx.fillRect(-5, -20 + bob, 2, 2); ctx.fillRect(3, -20 + bob, 2, 2); // 눈
+            // 다리
+            ctx.fillStyle = '#333'; ctx.fillRect(-10, 10 + walk, 7, 10); ctx.fillRect(3, 10 - walk, 7, 10);
+            // 무기 (철퇴)
+            ctx.fillStyle = '#844'; ctx.fillRect(15, -10 + bob, 5, 30);
+            ctx.fillStyle = '#aaa'; ctx.fillRect(10, 15 + bob, 15, 15);
+            ctx.restore();
+        }
+
+        function spawnBoss() {
+            isBossMode = true;
+            document.getElementById('boss-warn').style.display = 'block';
+            playTone(100, 1, 'square'); // 웅장한 저음
+            setTimeout(() => {
+                document.getElementById('boss-warn').style.display = 'none';
+                enemies.push({ x: player.x, y: player.y - 400, hp: 500, maxHp: 500, isBoss: true, spd: 0.5 });
+            }, 3000);
+        }
 
         function update() {
-            if(!isLive) return;
             player.x += player.vx; player.y += player.vy;
-            player.tick += 0.1;
+            tick++;
+            
+            // 보스 체크
+            if(kills >= 30 && !isBossMode) spawnBoss();
 
-            // 몹 스폰 (해골병사)
-            if(enemies.length < 15 + lv*2) {
+            // 몹 스폰
+            if(enemies.length < (isBossMode ? 5 : 15)) {
                 const a = Math.random()*Math.PI*2;
-                enemies.push({ x: player.x+Math.cos(a)*500, y: player.y+Math.sin(a)*500, hp: 3+lv, spd: 0.6+(lv*0.1) });
+                enemies.push({ x: player.x+Math.cos(a)*600, y: player.y+Math.sin(a)*600, hp: 3, spd: 1 });
             }
 
             enemies.forEach((e, i) => {
-                const ang = Math.atan2(player.y-e.y, player.x-e.x);
-                e.x += Math.cos(ang)*e.spd; e.y += Math.sin(ang)*e.spd;
-
-                // 타격 판정 (자동 공격)
-                if(Date.now() % 500 < 20) {
-                    if(Math.hypot(player.x-e.x, player.y-e.y) < 150) {
-                        e.hp -= 2; shake = 5;
-                        spawnPart(e.x, e.y, 5, 'cyan'); // 번개 효과
+                const ang = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd;
+                
+                // 자동 공격 (반경 내 적)
+                if(Math.hypot(player.x - e.x, player.y - e.y) < 100 && tick % 20 === 0) {
+                    e.hp -= 1; shake = 5; playTone(440, 0.1);
+                    if(e.hp <= 0) {
+                        enemies.splice(i, 1); kills++; mp = Math.min(100, mp + 5);
+                        document.getElementById('kill-count').innerText = kills;
                     }
                 }
-
-                if(e.hp <= 0) {
-                    enemies.splice(i, 1); kills++; mp = Math.min(100, mp+4);
-                    if(kills % 20 === 0) lv++;
-                }
-                if(Math.hypot(player.x-e.x, player.y-e.y) < 25) hp -= 0.3;
+                if(Math.hypot(player.x - e.x, player.y - e.y) < 20) hp -= 0.2;
             });
 
-            if(shake > 0) shake *= 0.8;
-            updateUI();
-        }
-
-        function updateUI() {
+            if(shake > 0) shake *= 0.9;
             document.getElementById('hp-fill').style.height = hp + "%";
             document.getElementById('mp-fill').style.height = mp + "%";
-            document.getElementById('k-count').innerText = kills;
-            document.getElementById('l-count').innerText = lv;
-            if(hp <= 0) { alert("영혼이 소멸되었습니다."); location.reload(); }
-        }
-
-        function spawnPart(x, y, n, c) {
-            for(let i=0; i<n; i++) particles.push({x, y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life:15, c});
-        }
-
-        // 고퀄리티 도트 캐릭터 렌더링
-        function drawPlayer() {
-            const x = canvas.width/2, y = canvas.height/2;
-            const bob = Math.sin(player.tick)*4;
-
-            // 아우라
-            ctx.shadowBlur = 15; ctx.shadowColor = 'red';
-            ctx.fillStyle = 'rgba(255,0,0,0.1)';
-            ctx.beginPath(); ctx.arc(x, y+bob, 35, 0, Math.PI*2); ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // 몸체 (도트 레이어)
-            ctx.fillStyle = '#432'; // 하의
-            ctx.fillRect(x-12, y+5+bob, 24, 15);
-            ctx.fillStyle = '#666'; // 갑옷
-            ctx.fillRect(x-15, y-10+bob, 30, 18);
-            ctx.fillStyle = '#ffdbac'; // 얼굴
-            ctx.fillRect(x-8, y-22+bob, 16, 14);
-            ctx.fillStyle = '#321'; // 수염/머리
-            ctx.fillRect(x-8, y-24+bob, 16, 5);
-            ctx.fillRect(x-4, y-12+bob, 8, 4);
-
-            // 무기 (철퇴)
-            ctx.fillStyle = '#222';
-            ctx.fillRect(x+18, y-5+bob, 6, 30);
-            ctx.fillStyle = '#555';
-            ctx.fillRect(x+14, y+15+bob, 14, 14);
         }
 
         function draw() {
             ctx.save();
             ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
-            ctx.fillStyle = '#050508'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            
+            ctx.fillStyle = '#0a0a0c'; ctx.fillRect(0,0,canvas.width, canvas.height);
             const cx = player.x - canvas.width/2, cy = player.y - canvas.height/2;
 
-            // 적 렌더링 (해골)
+            // 배경 격자
+            ctx.strokeStyle = '#15151a';
+            for(let x=-cx%80; x<canvas.width; x+=80) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+            for(let y=-cy%80; y<canvas.height; y+=80) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+
+            // 적 렌더링
             enemies.forEach(e => {
-                ctx.fillStyle = '#eee'; ctx.fillRect(e.x-cx-8, e.y-cy-12, 16, 16); // 머리
-                ctx.fillStyle = '#000'; ctx.fillRect(e.x-cx-5, e.y-cy-8, 3, 3); ctx.fillRect(e.x-cx+2, e.y-cy-8, 3, 3); // 눈
-                ctx.fillStyle = '#ccc'; ctx.fillRect(e.x-cx-4, e.y-cy+4, 8, 12); // 몸통
-            });
-
-            // 번개 이펙트 (공격 시)
-            if(Date.now() % 500 < 50) {
-                const target = enemies[0];
-                if(target && Math.hypot(player.x-target.x, player.y-target.y) < 150) {
-                    ctx.strokeStyle = '#0af'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.moveTo(canvas.width/2, canvas.height/2);
-                    ctx.lineTo(target.x-cx, target.y-cy); ctx.stroke();
+                const isB = e.isBoss;
+                const size = isB ? 60 : 20;
+                ctx.fillStyle = isB ? '#f00' : '#4f4';
+                ctx.fillRect(e.x-cx-size/2, e.y-cy-size/2, size, size);
+                if(isB) { // 보스 체력바
+                    ctx.fillStyle = '#222'; ctx.fillRect(e.x-cx-50, e.y-cy-60, 100, 10);
+                    ctx.fillStyle = '#f00'; ctx.fillRect(e.x-cx-50, e.y-cy-60, (e.hp/e.maxHp)*100, 10);
                 }
-            }
-
-            particles.forEach((p, i) => {
-                ctx.fillStyle = p.c; ctx.fillRect(p.x-cx, p.y-cy, 4, 4);
-                p.x += p.vx; p.y += p.vy; p.life--;
-                if(p.life <= 0) particles.splice(i, 1);
             });
 
-            drawPlayer();
+            drawWarrior(canvas.width/2, canvas.height/2, tick, Math.abs(player.vx)+Math.abs(player.vy) > 0.1);
             ctx.restore();
         }
 
         function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
     </script>
 </body>
 </html>
