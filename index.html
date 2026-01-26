@@ -1,31 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>두쫀쿠 서바이버: 점 버전</title>
+    <title>두쫀쿠 서바이버: 필살기 업데이트</title>
     <style>
         body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; }
         canvas { display: block; }
         #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; }
-        .stat { font-size: 16px; margin-bottom: 5px; }
-        #hpBar { width: 200px; height: 10px; background: #555; border: 1px solid white; }
-        #hpInner { height: 100%; width: 100%; background: lime; }
+        .stat { font-size: 16px; margin-bottom: 8px; text-shadow: 2px 2px 2px #000; }
+        #hpBar, #ultBar { width: 200px; height: 12px; background: #444; border: 2px solid #fff; margin-top: 4px; border-radius: 6px; overflow: hidden; }
+        #hpInner { height: 100%; width: 100%; background: #ff4444; transition: 0.1s; }
+        #ultInner { height: 100%; width: 0%; background: #ffee00; box-shadow: 0 0 10px #ffaa00; transition: 0.2s; }
+        #ultReady { color: #ffee00; font-weight: bold; display: none; animation: blink 0.5s infinite; }
+        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
         #levelUp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                   background: rgba(0,0,0,0.9); padding: 20px; color: white; display: none; text-align: center; }
-        .btn { background: #444; color: white; padding: 10px; margin: 5px; cursor: pointer; border: 1px solid #fff; }
+                   background: rgba(0,0,0,0.9); padding: 30px; color: white; display: none; text-align: center; border: 3px solid #fff; }
+        .btn { background: #333; color: white; padding: 15px; margin: 10px; cursor: pointer; border: 2px solid #fff; border-radius: 8px; }
+        .btn:hover { background: #555; }
     </style>
 </head>
 <body>
     <div id="ui">
         <div class="stat">시간: <span id="timer">00:00</span></div>
-        <div class="stat">레벨: <span id="level">1</span> | 점수: <span id="score">0</span></div>
         <div class="stat">HP <div id="hpBar"><div id="hpInner"></div></div></div>
+        <div class="stat">필살기 (SPACE) <div id="ultBar"><div id="ultInner"></div></div>
+            <span id="ultReady">READY!</span>
+        </div>
+        <div class="stat">레벨: <span id="level">1</span> | 점수: <span id="score">0</span></div>
     </div>
 
     <div id="levelUp">
-        <h2>LEVEL UP! 스킬 선택</h2>
-        <div class="btn" onclick="upgrade('gun')">총 (연사/강화)</div>
-        <div class="btn" onclick="upgrade('fire')">불 (폭발)</div>
-        <div class="btn" onclick="upgrade('water')">물 (주변 공격)</div>
+        <h2>LEVEL UP! 스킬 강화</h2>
+        <div class="btn" onclick="upgrade('gun')">총 (공격력 증가)</div>
+        <div class="btn" onclick="upgrade('fire')">연사 (속도 증가)</div>
+        <div class="btn" onclick="upgrade('water')">체력 재생 증가</div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -36,26 +43,18 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let score = 0, level = 1, exp = 0, hp = 100, startTime = Date.now(), isPaused = false;
-        const player = { x: 0, y: 0, size: 20 };
+        let score = 0, level = 1, exp = 0, hp = 100, ult = 0, startTime = Date.now(), isPaused = false;
+        const player = { x: 0, y: 0, size: 20, speed: 4 };
         const camera = { x: 0, y: 0 };
-        const enemies = [], bullets = [], orbs = [];
+        const enemies = [], bullets = [], orbs = [], items = [];
         const skills = { gun: 1, fire: 0, water: 0 };
+        const keys = {};
 
-        // 적 생성
-        setInterval(() => {
-            if (isPaused) return;
-            const ang = Math.random() * Math.PI * 2;
-            const dist = 600;
-            const elapsed = (Date.now() - startTime) / 1000;
-            enemies.push({
-                x: player.x + Math.cos(ang) * dist,
-                y: player.y + Math.sin(ang) * dist,
-                hp: 2 + Math.floor(elapsed / 30), // 시간 갈수록 피통 커짐
-                size: 15,
-                color: `hsl(${elapsed * 5 % 360}, 70%, 50%)` // 시간 갈수록 색깔 변함
-            });
-        }, 800);
+        window.onkeydown = e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.code === 'Space' && ult >= 100) useUltimate();
+        };
+        window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
         function upgrade(type) {
             skills[type]++;
@@ -63,43 +62,85 @@
             document.getElementById('levelUp').style.display = 'none';
         }
 
-        function gameLoop() {
-            if (!isPaused) {
-                update();
-                draw();
-            }
-            requestAnimationFrame(gameLoop);
+        // 필살기 발동
+        function useUltimate() {
+            ult = 0;
+            document.getElementById('ultInner').style.width = "0%";
+            document.getElementById('ultReady').style.display = 'none';
+            
+            // 화면 효과 (섬광)
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 화면 내 모든 적 제거
+            enemies.forEach((e, i) => {
+                orbs.push({x: e.x, y: e.y});
+                score += 10;
+            });
+            enemies.length = 0;
+            document.getElementById('score').innerText = score;
         }
+
+        function handleMovement() {
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['arrowup']) dy -= 1;
+            if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1;
+            if (keys['d'] || keys['arrowright']) dx += 1;
+
+            if (dx !== 0 && dy !== 0) {
+                const len = Math.sqrt(dx * dx + dy * dy);
+                dx /= len; dy /= len;
+            }
+            player.x += dx * player.speed;
+            player.y += dy * player.speed;
+        }
+
+        setInterval(() => {
+            if (isPaused) return;
+            const ang = Math.random() * Math.PI * 2;
+            const dist = 700;
+            const elapsed = (Date.now() - startTime) / 1000;
+            enemies.push({
+                x: player.x + Math.cos(ang) * dist,
+                y: player.y + Math.sin(ang) * dist,
+                hp: 2 + Math.floor(elapsed / 20),
+                size: 15,
+                color: `hsl(${elapsed * 10 % 360}, 70%, 50%)`
+            });
+        }, 800);
 
         function update() {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            document.getElementById('timer').innerText = `${Math.floor(elapsed/60)}:${elapsed%60}`;
+            document.getElementById('timer').innerText = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
 
-            // 플레이어는 항상 중앙 (카메라가 따라감)
+            handleMovement();
             camera.x = player.x - canvas.width/2;
             camera.y = player.y - canvas.height/2;
 
-            // 적 추적 및 공격
+            // 체력 자연 회복 (water 스킬 비례)
+            hp = Math.min(100, hp + (0.01 + skills.water * 0.01));
+            document.getElementById('hpInner').style.width = hp + "%";
+
             enemies.forEach((e, ei) => {
                 const ang = Math.atan2(player.y - e.y, player.x - e.x);
                 e.x += Math.cos(ang) * 1.5;
                 e.y += Math.sin(ang) * 1.5;
 
-                // 플레이어 충돌
                 if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
-                    hp -= 0.1;
-                    document.getElementById('hpInner').style.width = hp + "%";
+                    hp -= 0.2;
+                    if (hp <= 0) { alert("Game Over!"); location.reload(); }
                 }
             });
 
-            // 자동 사격 (가까운 적에게)
-            if (Date.now() % 30 === 0 && enemies.length > 0) {
+            // 총알 생성 (fire 스킬로 속도 조절)
+            const shootInterval = Math.max(10, 30 - skills.fire * 5);
+            if (Math.floor(Date.now()/10) % shootInterval === 0 && enemies.length > 0) {
                 const target = enemies[0];
                 const ang = Math.atan2(target.y - player.y, target.x - player.x);
-                bullets.push({ x: player.x, y: player.y, vx: Math.cos(ang) * 7, vy: Math.sin(ang) * 7, size: 4 + skills.gun });
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(ang) * 8, vy: Math.sin(ang) * 8 });
             }
 
-            // 총알 이동
             bullets.forEach((b, bi) => {
                 b.x += b.vx; b.y += b.vy;
                 enemies.forEach((e, ei) => {
@@ -107,83 +148,93 @@
                         e.hp -= skills.gun;
                         bullets.splice(bi, 1);
                         if (e.hp <= 0) {
+                            // 확률적으로 회복약 드롭 (10%)
+                            if (Math.random() < 0.1) items.push({x: e.x, y: e.y, type: 'heal'});
                             orbs.push({x: e.x, y: e.y});
                             enemies.splice(ei, 1);
                             score += 10;
+                            // 필살기 게이지 증가
+                            ult = Math.min(100, ult + 2);
+                            document.getElementById('ultInner').style.width = ult + "%";
+                            if (ult >= 100) document.getElementById('ultReady').style.display = 'inline';
                             document.getElementById('score').innerText = score;
                         }
                     }
                 });
             });
 
-            // 경험치 획득
-            orbs.forEach((o, oi) => {
-                if (Math.hypot(player.x - o.x, player.y - o.y) < 30) {
-                    orbs.splice(oi, 1);
-                    exp++;
-                    if (exp >= level * 3) {
-                        level++; exp = 0;
-                        isPaused = true;
-                        document.getElementById('levelUp').style.display = 'block';
-                        document.getElementById('level').innerText = level;
-                    }
+            // 아이템(회복) 획득
+            items.forEach((it, i) => {
+                if (Math.hypot(player.x - it.x, player.y - it.y) < 30) {
+                    if (it.type === 'heal') hp = Math.min(100, hp + 20);
+                    items.splice(i, 1);
                 }
             });
 
-            // 마우스 방향으로 캐릭터 천천히 이동 (필드 누비기)
-            // 실제 mattle.fun처럼 마우스 쪽으로 캐릭터 좌표가 바뀝니다.
-            // window.onmousemove로 mouseX, mouseY 받아서 구현 가능
+            orbs.forEach((o, oi) => {
+                if (Math.hypot(player.x - o.x, player.y - o.y) < 40) {
+                    o.x += (player.x - o.x) * 0.1; o.y += (player.y - o.y) * 0.1;
+                    if (Math.hypot(player.x - o.x, player.y - o.y) < 10) {
+                        orbs.splice(oi, 1);
+                        exp++;
+                        if (exp >= level * 5) {
+                            level++; exp = 0; isPaused = true;
+                            document.getElementById('levelUp').style.display = 'block';
+                            document.getElementById('level').innerText = level;
+                        }
+                    }
+                }
+            });
         }
-
-        // 키보드 이동 추가
-        const keys = {};
-        window.onkeydown = e => keys[e.key] = true;
-        window.onkeyup = e => keys[e.key] = false;
-        function move() {
-            if (keys['w'] || keys['ArrowUp']) player.y -= 3;
-            if (keys['s'] || keys['ArrowDown']) player.y += 3;
-            if (keys['a'] || keys['ArrowLeft']) player.x -= 3;
-            if (keys['d'] || keys['ArrowRight']) player.x += 3;
-            requestAnimationFrame(move);
-        }
-        move();
 
         function draw() {
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 그리드 배경 (이동 체감을 위해)
-            ctx.strokeStyle = '#333';
+            // 그리드
+            ctx.strokeStyle = '#222';
             for(let i=0; i<canvas.width; i+=50) {
                 ctx.beginPath(); ctx.moveTo(i - (camera.x % 50), 0); ctx.lineTo(i - (camera.x % 50), canvas.height); ctx.stroke();
             }
-            for(let i=0; i<canvas.height; i+=50) {
-                ctx.beginPath(); ctx.moveTo(0, i - (camera.y % 50)); ctx.lineTo(canvas.width, i - (camera.y % 50)); ctx.stroke();
-            }
 
-            // 적 (색깔 점)
+            // 아이템 (빨간색 십자가 모양 대용)
+            items.forEach(it => {
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(it.x - camera.x - 5, it.y - camera.y - 12, 10, 24);
+                ctx.fillRect(it.x - camera.x - 12, it.y - camera.y - 5, 24, 10);
+            });
+
             enemies.forEach(e => {
                 ctx.fillStyle = e.color;
                 ctx.beginPath(); ctx.arc(e.x - camera.x, e.y - camera.y, e.size, 0, Math.PI*2); ctx.fill();
             });
 
-            // 총알
             bullets.forEach(b => {
-                ctx.fillStyle = 'yellow';
-                ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, b.size, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ffee00';
+                ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, 4, 0, Math.PI*2); ctx.fill();
             });
 
-            // 경험치
             orbs.forEach(o => {
-                ctx.fillStyle = 'cyan';
-                ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#00ffff';
+                ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 4, 0, Math.PI*2); ctx.fill();
             });
 
-            // 플레이어 (중앙 고정)
+            // 플레이어
             ctx.fillStyle = '#00ffcc';
             ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size, 0, Math.PI*2); ctx.fill();
+            // 필살기 준비 완료 시 오라 효과
+            if (ult >= 100) {
+                ctx.strokeStyle = '#ffee00';
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size + 5, 0, Math.PI*2); ctx.stroke();
+            }
         }
 
+        function gameLoop() {
+            if (!isPaused) update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
         gameLoop();
     </script>
 </body>
