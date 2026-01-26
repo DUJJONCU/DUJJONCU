@@ -1,20 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <title>두쫀쿠 서바이버 - 이동 확인용</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>두쫀쿠 서바이버: 100 스테이지</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Arial', sans-serif; touch-action: none; user-select: none; }
         canvas { display: block; }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; }
-        #guide { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #aaa; }
+        
+        /* 상단 UI */
+        #ui-top { position: absolute; top: 15px; left: 15px; color: white; pointer-events: none; }
+        #stage-info { font-size: 24px; color: #ffee00; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        #hp-bar-container { width: 150px; height: 10px; background: #444; border: 2px solid #fff; margin-top: 5px; border-radius: 5px; }
+        #hp-bar-inner { height: 100%; width: 100%; background: #ff4444; transition: 0.1s; }
+
+        /* 좌측 조이스틱 */
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); }
+        #joy-stick { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(0,255,204,0.5); border-radius: 50%; box-shadow: 0 0 10px #00ffcc; }
+
+        /* 우측 필살기 버튼 */
+        #ult-btn {
+            position: absolute; bottom: 40px; right: 40px; width: 80px; height: 80px; 
+            background: rgba(255, 68, 68, 0.3); border: 3px solid #ff4444; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; color: white; font-weight: bold;
+            text-shadow: 1px 1px 2px #000; opacity: 0.3; transition: 0.2s;
+        }
+        #ult-btn.ready { opacity: 1; background: #ff4444; box-shadow: 0 0 20px #ff4444; cursor: pointer; transform: scale(1.1); }
+
+        /* 중앙 메시지 */
+        #msg { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffee00; font-size: 30px; font-weight: bold; display: none; text-align: center; }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <div style="font-size: 20px;">위치: X: <span id="posX">0</span>, Y: <span id="posY">0</span></div>
-        <div style="color: yellow;">W, A, S, D 키로 움직여보세요!</div>
+    <div id="ui-top">
+        <div id="stage-info">STAGE <span id="cur-stage">1</span></div>
+        <div>HP <div id="hp-bar-container"><div id="hp-bar-inner"></div></div></div>
+        <div style="font-size: 14px; margin-top:5px;">보스 등장까지: <span id="kill-count">30</span>마리</div>
     </div>
-    <div id="guide">화면을 한 번 클릭해야 조작이 시작됩니다.</div>
+
+    <div id="msg">STAGE CLEAR!</div>
+
+    <div id="joy-base"><div id="joy-stick"></div></div>
+    <div id="ult-btn">필살기</div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -23,80 +51,186 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        const player = { x: 0, y: 0, size: 25, speed: 5 };
-        const keys = {};
+        // 게임 상태
+        let stage = 1;
+        let killsToBoss = 30;
+        let hp = 100;
+        let ultGauge = 0;
+        let isPaused = false;
+        
+        const player = { x: 0, y: 0, size: 22, speed: 4.5 };
+        const camera = { x: 0, y: 0 };
+        const enemies = [], bullets = [], orbs = [];
+        
+        // 컨트롤러 상태
+        let moveX = 0, moveY = 0, isJoyDown = false;
 
-        // 키보드 입력 감지
-        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+        // --- 조이스틱 로직 ---
+        const joyBase = document.getElementById('joy-base');
+        const joyStick = document.getElementById('joy-stick');
+        
+        const updateJoy = (e) => {
+            if(!isJoyDown) return;
+            const touch = e.touches ? e.touches[0] : e;
+            const rect = joyBase.getBoundingClientRect();
+            const cx = rect.left + 50, cy = rect.top + 50;
+            let dx = touch.clientX - cx, dy = touch.clientY - cy;
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+            const angle = Math.atan2(dy, dx);
+            
+            const sx = Math.cos(angle) * dist, sy = Math.sin(angle) * dist;
+            joyStick.style.transform = `translate(${sx}px, ${sy}px)`;
+            moveX = sx / 50; moveY = sy / 50;
+        };
 
+        joyBase.addEventListener('touchstart', () => isJoyDown = true);
+        window.addEventListener('touchmove', updateJoy);
+        window.addEventListener('touchend', () => { isJoyDown = false; moveX = 0; moveY = 0; joyStick.style.transform = 'translate(0,0)'; });
+        joyBase.addEventListener('mousedown', () => isJoyDown = true);
+        window.addEventListener('mousemove', updateJoy);
+        window.addEventListener('mouseup', () => { isJoyDown = false; moveX = 0; moveY = 0; joyStick.style.transform = 'translate(0,0)'; });
+
+        // --- 필살기 로직 ---
+        const ultBtn = document.getElementById('ult-btn');
+        const useUlt = () => {
+            if(ultGauge < 100) return;
+            ultGauge = 0;
+            ultBtn.classList.remove('ready');
+            
+            // 연출: 화면 섬광
+            ctx.fillStyle = "white";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            
+            enemies.forEach(e => {
+                if(e.isBoss) e.hp -= 50; // 보스에겐 큰 데미지
+                else e.hp = 0; // 일반몹은 즉사
+            });
+        };
+        ultBtn.addEventListener('touchstart', useUlt);
+        ultBtn.addEventListener('mousedown', useUlt);
+
+        // --- 적 생성 ---
+        function spawnEnemy(isBoss = false) {
+            const ang = Math.random() * Math.PI * 2;
+            const dist = 700;
+            enemies.push({
+                x: player.x + Math.cos(ang) * dist,
+                y: player.y + Math.sin(ang) * dist,
+                hp: isBoss ? (20 + stage * 20) : (1 + Math.floor(stage/5)),
+                size: isBoss ? (50 + stage/2) : 16,
+                speed: isBoss ? 1.2 : (1.5 + Math.random()),
+                isBoss: isBoss,
+                color: isBoss ? '#ff00ff' : `hsl(${stage * 10 % 360}, 70%, 50%)`
+            });
+        }
+
+        // --- 메인 루프 ---
         function update() {
-            let dx = 0;
-            let dy = 0;
+            if(isPaused) return;
 
-            if (keys['w'] || keys['arrowup']) dy -= 1;
-            if (keys['s'] || keys['arrowdown']) dy += 1;
-            if (keys['a'] || keys['arrowleft']) dx -= 1;
-            if (keys['d'] || keys['arrowright']) dx += 1;
+            // 이동
+            player.x += moveX * player.speed;
+            player.y += moveY * player.speed;
+            camera.x = player.x - canvas.width/2;
+            camera.y = player.y - canvas.height/2;
 
-            // 대각선 이동 속도 보정
-            if (dx !== 0 && dy !== 0) {
-                const len = Math.sqrt(dx * dx + dy * dy);
-                dx /= len; dy /= len;
+            // 몹 스폰 (보스가 없을 때만)
+            if(enemies.length < 15 + stage && killsToBoss > 0 && !enemies.some(e=>e.isBoss)) {
+                spawnEnemy(false);
             }
 
-            player.x += dx * player.speed;
-            player.y += dy * player.speed;
+            // 자동 사격
+            if(Date.now() % 30 === 0 && enemies.length > 0) {
+                const target = enemies[0];
+                const ang = Math.atan2(target.y - player.y, target.x - player.x);
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(ang)*8, vy: Math.sin(ang)*8 });
+            }
 
-            // UI에 좌표 표시
-            document.getElementById('posX').innerText = Math.floor(player.x);
-            document.getElementById('posY').innerText = Math.floor(player.y);
+            // 충돌 및 로직
+            enemies.forEach((e, ei) => {
+                const ang = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(ang) * e.speed;
+                e.y += Math.sin(ang) * e.speed;
+
+                if(Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
+                    hp -= 0.3;
+                    document.getElementById('hp-bar-inner').style.width = hp + "%";
+                    if(hp <= 0) { alert("게임 오버! 스테이지: " + stage); location.reload(); }
+                }
+
+                bullets.forEach((b, bi) => {
+                    if(Math.hypot(b.x - e.x, b.y - e.y) < e.size) {
+                        e.hp -= 1;
+                        bullets.splice(bi, 1);
+                        if(e.hp <= 0) {
+                            if(e.isBoss) { // 보스 처치 시
+                                stage++;
+                                killsToBoss = 30;
+                                document.getElementById('cur-stage').innerText = stage;
+                                showMsg("STAGE " + stage + " START!");
+                            } else {
+                                if(killsToBoss > 0) {
+                                    killsToBoss--;
+                                    document.getElementById('kill-count').innerText = killsToBoss;
+                                    if(killsToBoss === 0) {
+                                        spawnEnemy(true);
+                                        showMsg("BOSS APPEARED!");
+                                    }
+                                }
+                            }
+                            ultGauge = Math.min(100, ultGauge + (e.isBoss ? 50 : 3));
+                            if(ultGauge >= 100) ultBtn.classList.add('ready');
+                            enemies.splice(ei, 1);
+                        }
+                    }
+                });
+            });
+
+            bullets.forEach((b, i) => { 
+                b.x += b.vx; b.y += b.vy; 
+                if(Math.hypot(player.x - b.x, player.y - b.y) > 1000) bullets.splice(i,1);
+            });
+        }
+
+        function showMsg(t) {
+            const m = document.getElementById('msg');
+            m.innerText = t; m.style.display = 'block';
+            setTimeout(() => m.style.display = 'none', 2000);
         }
 
         function draw() {
-            // 배경 청소
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0,0,canvas.width, canvas.height);
 
-            // --- 격자 배경 그리기 (이동을 시각적으로 확인하는 핵심!) ---
-            const gridSize = 100;
-            const offsetX = -player.x % gridSize;
-            const offsetY = -player.y % gridSize;
-
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
-
-            // 세로선
-            for (let x = offsetX; x < canvas.width; x += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
+            // 격자 배경
+            ctx.strokeStyle = '#252525';
+            for(let x = -camera.x % 60; x < canvas.width; x += 60) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
             }
-            // 가로선
-            for (let y = offsetY; y < canvas.height; y += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
-                ctx.stroke();
+            for(let y = -camera.y % 60; y < canvas.height; y += 60) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             }
 
-            // --- 플레이어 그리기 (화면 정중앙 고정) ---
-            ctx.fillStyle = '#00ffcc'; // 두쫀쿠 색상
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ffcc';
-            ctx.beginPath();
-            ctx.arc(canvas.width / 2, canvas.height / 2, player.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.arc(e.x - camera.x, e.y - camera.y, e.size, 0, Math.PI*2); ctx.fill();
+                if(e.isBoss) { // 보스 체력바
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(e.x - camera.x - 30, e.y - camera.y - e.size - 10, 60 * (e.hp / (20 + stage * 20)), 5);
+                }
+            });
+
+            bullets.forEach(b => {
+                ctx.fillStyle = '#ffee00';
+                ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, 4, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 플레이어
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size, 0, Math.PI*2); ctx.fill();
         }
 
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
-
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
         loop();
     </script>
 </body>
