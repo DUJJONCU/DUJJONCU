@@ -1,484 +1,190 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>두쫀쿠 솔라나 디앱</title>
-    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <title>두쫀쿠 서바이버: 점 버전</title>
     <style>
-        /* 기본 CSS 변수 설정 */
-        :root {
-            --bg-start: #ffedef; /* 파스텔 핑크 */
-            --bg-end: #f5f7fa; /* 연한 회색 */
-            --primary-color: #ff7f50; /* 산호색 */
-            --secondary-color: #8a2be2; /* 보라색 */
-            --text-color: #333;
-            --button-bg: linear-gradient(45deg, #ff9a9e 0%, #fecfef 100%);
-            --button-shadow: #fd79a8;
-        }
-
-        body {
-            margin: 0; padding: 0;
-            font-family: 'Jua', sans-serif;
-            color: var(--text-color);
-            overflow: hidden;
-            display: flex; flex-direction: column;
-            min-height: 100vh;
-            background: var(--bg-start);
-            background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
-        }
-
-        #particles-js {
-            position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: -1;
-        }
-
-        #header {
-            background: rgba(255, 255, 255, 0.9); padding: 15px 0; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; z-index: 10;
-        }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 600px; margin: 0 auto; }
-        .stat-item { text-align: center; font-size: 0.9rem; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .stat-icon { font-size: 1.2rem; margin-bottom: 3px; }
-        .stat-value { font-size: 1.3rem; font-weight: bold; color: var(--primary-color); }
-        .token-balance-text { font-size: 0.8rem; color: #777; margin-top: 5px; }
-
-        #game-stage {
-            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            position: relative; z-index: 5; padding: 20px;
-        }
-
-        #character-area { position: relative; display: flex; justify-content: center; align-items: center; width: 200px; height: 200px; }
-        #character {
-            width: 150px; height: 150px; /* 이모지 대신 이미지 크기 */
-            filter: drop-shadow(0 15px 10px rgba(0,0,0,0.2));
-            transition: transform 0.1s ease-out; cursor: pointer; user-select: none; position: absolute;
-            background-size: contain; background-repeat: no-repeat; background-position: center;
-            background-image: url('https://i.imgur.com/your-doojjonku-image.gif'); /* 여기에 두쫀쿠 GIF 이미지 URL을 넣으세요! */
-        }
-        #character:active { transform: scale(1.1); }
-
-        .holder-aura {
-            position: absolute; width: 100%; height: 100%; border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%); animation: pulse 2s infinite alternate;
-            display: none;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.7; } 100% { transform: scale(1.05); opacity: 1; }
-        }
-
-        .floating-score {
-            position: absolute; font-size: 2rem; font-weight: bold; color: #ff6347; pointer-events: none;
-            animation: floatUpFade 1s ease-out forwards; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-        @keyframes floatUpFade {
-            0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
-        }
-
-        #message-box {
-            background: rgba(255, 255, 255, 0.9); padding: 10px 20px; border-radius: 20px; margin-top: 20px;
-            font-size: 1.1rem; min-height: 2em; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        #controls {
-            display: flex; justify-content: center; gap: 10px; padding: 25px;
-            background: rgba(255, 255, 255, 0.9); border-top-left-radius: 25px; border-top-right-radius: 25px;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.05); position: relative; z-index: 10;
-        }
-        .action-button {
-            border: none; border-radius: 30px; padding: 12px 20px; font-family: 'Jua', sans-serif;
-            font-size: 1rem; color: white; cursor: pointer; transition: all 0.2s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: var(--button-bg);
-        }
-        .action-button:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .wallet-button { background: linear-gradient(45deg, #a77dff 0%, #b2ebf2 100%); } /* 솔라나 느낌 그라데이션 */
-        .shop-button { background: linear-gradient(45deg, #fbc02d 0%, #ffeb3b 100%); } /* 상점 버튼 색상 */
-
-        /* 모달 (팝업) 스타일 - 지갑, 상점 공용 */
-        .modal {
-            display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
-            overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background-color: #fefefe; margin: auto; padding: 25px; border-radius: 15px; width: 85%; max-width: 450px;
-            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: fadeIn 0.3s ease-out;
-            color: var(--text-color);
-        }
-        .modal-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; color: var(--primary-color); }
-        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .close-button:hover, .close-button:focus { color: #333; text-decoration: none; cursor: pointer; }
-        .modal-text { margin-bottom: 20px; font-size: 1.1rem; }
-        .modal-option-button {
-            display: block; width: 100%; padding: 15px; margin-bottom: 10px;
-            background: #e0f2f7; border: 1px solid #b2ebf2; border-radius: 10px;
-            font-family: 'Jua', sans-serif; font-size: 1.1rem; cursor: pointer;
-            transition: background 0.2s ease;
-        }
-        .modal-option-button:hover { background: #b2ebf2; }
-
-        /* 아이템 샵 아이템 리스트 */
-        #shop-items-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px;
-        }
-        .shop-item {
-            background: #fff8e1; border: 1px solid #ffcc80; border-radius: 10px;
-            padding: 10px; text-align: center; cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s ease;
-        }
-        .shop-item:hover { transform: translateY(-3px); }
-        .item-icon { font-size: 2.5rem; margin-bottom: 5px; }
-        .item-name { font-weight: bold; font-size: 1rem; }
-        .item-price { font-size: 0.9rem; color: var(--primary-color); margin-top: 5px; }
-        .item-price.sold-out { text-decoration: line-through; color: #ccc; }
-        .item-bought { opacity: 0.6; pointer-events: none; } /* 구매된 아이템 */
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; pointer-events: none; }
+        .stat { font-size: 16px; margin-bottom: 5px; }
+        #hpBar { width: 200px; height: 10px; background: #555; border: 1px solid white; }
+        #hpInner { height: 100%; width: 100%; background: lime; }
+        #levelUp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                   background: rgba(0,0,0,0.9); padding: 20px; color: white; display: none; text-align: center; }
+        .btn { background: #444; color: white; padding: 10px; margin: 5px; cursor: pointer; border: 1px solid #fff; }
     </style>
 </head>
 <body>
-
-    <audio id="background-music" loop autoplay>
-        Your browser does not support the audio element.
-    </audio>
-
-    <div id="particles-js"></div>
-
-    <div id="header">
-        <div class="stats-grid">
-            <div class="stat-item">
-                <span class="stat-icon">🍗</span>
-                <span class="stat-value" id="hunger">100</span>
-                <span class="stat-label">포만감</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-icon">❤️</span>
-                <span class="stat-value" id="happiness">100</span>
-                <span class="stat-label">행복도</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-icon">💰</span>
-                <span class="stat-value" id="token-balance">0</span>
-                <span class="stat-label">보유코인</span>
-                <span class="token-balance-text" id="wallet-address-display">지갑 미연결</span>
-            </div>
-        </div>
+    <div id="ui">
+        <div class="stat">시간: <span id="timer">00:00</span></div>
+        <div class="stat">레벨: <span id="level">1</span> | 점수: <span id="score">0</span></div>
+        <div class="stat">HP <div id="hpBar"><div id="hpInner"></div></div></div>
     </div>
 
-    <div id="game-stage">
-        <div id="character-area">
-            <div id="holder-aura" class="holder-aura"></div>
-            <div id="character" class="animate__animated animate__bounceIn" onclick="clickChar(event)"></div>
-        </div>
-        <div id="message-box" class="animate__animated animate__fadeIn">나의 귀여운 쫀떡쿠를 돌봐줘!</div>
+    <div id="levelUp">
+        <h2>LEVEL UP! 스킬 선택</h2>
+        <div class="btn" onclick="upgrade('gun')">총 (연사/강화)</div>
+        <div class="btn" onclick="upgrade('fire')">불 (폭발)</div>
+        <div class="btn" onclick="upgrade('water')">물 (주변 공격)</div>
     </div>
 
-    <div id="controls">
-        <button class="action-button" onclick="performAction('feed')">🍙 먹이주기</button>
-        <button class="action-button" onclick="performAction('play')">🎾 놀아주기</button>
-        <button class="action-button shop-button" onclick="openShopModal()">🛍️ 상점</button>
-        <button class="action-button wallet-button" onclick="openWalletModal()">🔑 지갑 연결</button>
-    </div>
+    <canvas id="gameCanvas"></canvas>
 
-    <div id="walletModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" onclick="closeWalletModal()">&times;</span>
-            <div class="modal-title">🔑 지갑 연결</div>
-            <div class="modal-text">어떤 지갑으로 연결하시겠어요?</div>
-            <button class="modal-option-button" onclick="connectSolanaWallet('phantom')">👻 팬텀 지갑</button>
-            <button class="modal-option-button" onclick="connectSolanaWallet('solflare')">🔥 솔플레어 지갑</button>
-            <button class="modal-option-button" onclick="connectSolanaWallet('simulation')">🧪 테스트 지갑 (200만개 보유)</button>
-        </div>
-    </div>
-
-    <div id="shopModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" onclick="closeShopModal()">&times;</span>
-            <div class="modal-title">🛍️ 아이템 샵</div>
-            <div class="modal-text">내 코인: <span id="my-game-coins">0</span></div>
-            <div id="shop-items-grid">
-                </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script>
-        // particles.js 초기화
-        particlesJS('particles-js', {
-            "particles": {
-                "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
-                "color": { "value": "#ffdab9" },
-                "shape": { "type": "circle" },
-                "opacity": { "value": 0.5, "random": false, "anim": { "enable": false } },
-                "size": { "value": 3, "random": true, "anim": { "enable": false } },
-                "line_linked": { "enable": true, "distance": 150, "color": "#f0e68c", "opacity": 0.4, "width": 1 },
-                "move": { "enable": true, "speed": 6, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false, "attract": { "enable": false, "rotateX": 600, "rotateY": 1200 } }
-            },
-            "interactivity": {
-                "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": true, "mode": "push" }, "resize": true },
-                "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 1 } }, "bubble": { "distance": 400, "size": 40, "duration": 2, "opacity": 8, "speed": 3 }, "repulse": { "distance": 200, "duration": 0.4 }, "push": { "particles_nb": 4 }, "remove": { "particles_nb": 2 } }
-            },
-            "retina_detect": true
-        });
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        // ----------------------------------------
-        // 게임 상태 및 로직
-        // ----------------------------------------
-        let gameState = {
-            hunger: 100,
-            happiness: 100,
-            solanaTokenBalance: 0, // 실제 솔라나 코인 보유량
-            gameCoins: 0,          // 게임 내에서 얻는 코인 (아이템 구매용)
-            walletAddress: null,
-            tier: 'normal',
-            tokenMintAddress: "Your_Memecoin_Mint_Address_Here", // <-- 여기에 밈코인 주소를 넣으세요!
-            boughtItems: {} // 구매한 아이템 목록 (예: { hat: true, glasses: false })
-        };
+        let score = 0, level = 1, exp = 0, hp = 100, startTime = Date.now(), isPaused = false;
+        const player = { x: 0, y: 0, size: 20 };
+        const camera = { x: 0, y: 0 };
+        const enemies = [], bullets = [], orbs = [];
+        const skills = { gun: 1, fire: 0, water: 0 };
 
-        // 아이템 목록
-        const shopItems = [
-            { id: 'hat', name: '귀여운 모자', icon: '🎩', price: 50 },
-            { id: 'glasses', name: '멋진 선글라스', icon: '🕶️', price: 100 },
-            { id: 'scarf', name: '따뜻한 목도리', icon: '🧣', price: 75 },
-            { id: 'shoes', name: '힙한 신발', icon: '👟', price: 120 },
-        ];
-
-        const charEl = document.getElementById('character');
-        const msgEl = document.getElementById('message-box');
-        const holderAuraEl = document.getElementById('holder-aura');
-        const walletModal = document.getElementById('walletModal');
-        const shopModal = document.getElementById('shopModal');
-        const bgMusic = document.getElementById('background-music');
-
-        // 배경 음악 자동 재생 시도 (사용자 상호작용 후)
-        document.addEventListener('DOMContentLoaded', () => {
-            // 사용자 상호작용이 있어야 오디오 재생 가능
-            document.body.addEventListener('click', () => {
-                if (bgMusic.paused) {
-                    bgMusic.play().catch(e => console.log("BGM 재생 실패:", e));
-                }
-            }, { once: true });
-        });
-
-        // 5초마다 상태 감소
+        // 적 생성
         setInterval(() => {
-            gameState.hunger = Math.max(0, gameState.hunger - 5);
-            gameState.happiness = Math.max(0, gameState.happiness - 3);
-            updateGameUI();
-        }, 5000);
-
-        // UI 업데이트 함수
-        function updateGameUI() {
-            document.getElementById('hunger').innerText = gameState.hunger;
-            document.getElementById('happiness').innerText = gameState.happiness;
-            document.getElementById('token-balance').innerText = formatTokenBalance(gameState.solanaTokenBalance);
-            document.getElementById('wallet-address-display').innerText = gameState.walletAddress ? formatAddress(gameState.walletAddress) : "지갑 미연결";
-            if (document.getElementById('my-game-coins')) { // 상점 모달이 열려있을 때만 업데이트
-                document.getElementById('my-game-coins').innerText = gameState.gameCoins.toLocaleString();
-            }
-
-            // --- 등급별 캐릭터 및 효과 ---
-            // 캐릭터 기본 이미지 설정 (GIF로 변경)
-            charEl.style.backgroundImage = `url('./assets/doojjonku-base.gif')`; // 기본 이미지 경로, 나중에 변경
-            charEl.style.fontSize = '0'; // 이모지 텍스트 숨김
-
-            // 홀더 등급에 따른 특전
-            if (gameState.solanaTokenBalance >= 50000000) { // 다이아몬드 (5천만개)
-                gameState.tier = 'diamond';
-                charEl.style.backgroundImage = `url('./assets/doojjonku-diamond.gif')`; // 다이아몬드 GIF
-                holderAuraEl.style.display = 'block';
-                holderAuraEl.style.background = 'radial-gradient(circle, rgba(173,216,230,0.8) 0%, transparent 70%)'; // 푸른빛 아우라
-            } else if (gameState.solanaTokenBalance >= 10000000) { // 골드 (1천만개)
-                gameState.tier = 'gold';
-                charEl.style.backgroundImage = `url('./assets/doojjonku-gold.gif')`; // 골드 GIF
-                holderAuraEl.style.display = 'block';
-                holderAuraEl.style.background = 'radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%)'; // 황금빛 아우라
-            } else if (gameState.solanaTokenBalance >= 1000000) { // 실버 (100만개)
-                gameState.tier = 'silver';
-                charEl.style.backgroundImage = `url('./assets/doojjonku-silver.gif')`; // 실버 GIF
-                holderAuraEl.style.display = 'none'; // 실버는 아우라 없음
-            } else { // 일반
-                gameState.tier = 'normal';
-                charEl.style.backgroundImage = `url('./assets/doojjonku-normal.gif')`; // 일반 GIF
-                holderAuraEl.style.display = 'none';
-            }
-
-            // 구매한 아이템 적용 (캐릭터 이미지 위에 오버레이) - CSS로 처리할 수도 있고, JS로 이미지 추가할 수도 있습니다.
-            // 이모지를 다시 쓰려면 charEl.innerText = "🍪";
-            // 예: if (gameState.boughtItems.hat) charEl.style.backgroundImage = `url('./assets/doojjonku-hat.gif')`;
-
-            // 메시지 업데이트
-            if (gameState.walletAddress && !gameState.solanaTokenBalance) {
-                msgEl.innerText = "지갑은 연결되었지만, 아직 코인이 없네요...";
-            } else if (gameState.tier === 'diamond') {
-                msgEl.innerText = "우와! 다이아몬드 홀더님! 최고의 쫀떡쿠네요!";
-            } else if (gameState.tier === 'gold') {
-                msgEl.innerText = "골드 홀더님! 쫀떡쿠가 반짝여요!";
-            } else if (gameState.hunger < 30) {
-                msgEl.innerText = "배고파요... 밥 줘!";
-            } else if (gameState.happiness < 30) {
-                msgEl.innerText = "심심해... 놀아줘!";
-            } else {
-                msgEl.innerText = "나의 귀여운 쫀떡쿠를 돌봐줘!";
-            }
-            msgEl.className = "animate__animated animate__fadeIn";
-            updateShopItems(); // 상점 아이템도 상태에 따라 업데이트
-        }
-
-        // 캐릭터 클릭 (게임 내 코인 획득)
-        function clickChar(event) {
-            const addedCoins = 1; // 코인 획득량 아주 적게 설정!
-            gameState.gameCoins += addedCoins;
-            updateGameUI();
-            
-            charEl.classList.remove('animate__bounce');
-            void charEl.offsetWidth;
-            charEl.classList.add('animate__bounce');
-
-            createFloatingText(event.clientX, event.clientY, `+${addedCoins} 💰`);
-        }
-
-        // 행동 (먹이주기/놀아주기)
-        function performAction(type) {
-            const msg = document.getElementById('message-box');
-            if (type === 'feed') {
-                gameState.hunger = Math.min(100, gameState.hunger + 20);
-                msg.innerText = "냠냠! 쫀떡쿠가 맛있게 먹어요!";
-            } else if (type === 'play') {
-                gameState.happiness = Math.min(100, gameState.happiness + 20);
-                msg.innerText = "신나게 놀았어요! 고마워요!";
-            }
-            updateGameUI();
-            msg.className = "animate__animated animate__heartBeat";
-        }
-
-        // 플로팅 텍스트 생성
-        function createFloatingText(x, y, text) {
-            const el = document.createElement('div');
-            el.className = 'floating-score';
-            el.innerText = text;
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-            document.body.appendChild(el);
-            setTimeout(() => el.remove(), 1000);
-        }
-
-        // ----------------------------------------
-        // 솔라나 지갑 연동 (Placeholder)
-        // ----------------------------------------
-        function openWalletModal() { walletModal.style.display = 'flex'; }
-        function closeWalletModal() { walletModal.style.display = 'none'; }
-
-        async function connectSolanaWallet(walletType) {
-            closeWalletModal();
-            msgEl.innerText = `지갑 연결 중... (${walletType})`;
-            
-            if (walletType === 'simulation') {
-                setTimeout(() => {
-                    const simulatedAddress = "SimulatedWallet12345...";
-                    gameState.walletAddress = simulatedAddress;
-                    gameState.solanaTokenBalance = 2000000; // 200만개
-                    msgEl.innerText = `테스트 지갑 연결 성공! ${formatTokenBalance(gameState.solanaTokenBalance)} 코인 보유.`;
-                    updateGameUI();
-                }, 1500);
-                return;
-            }
-
-            try {
-                // 실제 Phantom/Solflare 지갑 연동 로직은 여기에 구현됩니다.
-                // 필요한 라이브러리: @solana/web3.js, @solana/wallet-adapter-base, @solana/wallet-adapter-wallets 등
-                // 예시: const provider = await getPhantomProvider();
-                //       await provider.connect();
-                //       const publicKey = provider.publicKey.toString();
-                //       gameState.walletAddress = publicKey;
-                //       const balance = await fetchTokenBalance(publicKey, gameState.tokenMintAddress);
-                //       gameState.solanaTokenBalance = balance;
-                
-                msgEl.innerText = `"${walletType}" 지갑 연결 (실제 연동 코드 필요).`;
-                gameState.walletAddress = "DemoWalletABCDE..."; // 임시
-                gameState.solanaTokenBalance = 1000000; // 임시
-                updateGameUI();
-
-            } catch (error) {
-                console.error("지갑 연결 실패:", error);
-                msgEl.innerText = "지갑 연결 실패! 다시 시도해주세요.";
-                gameState.walletAddress = null;
-                gameState.solanaTokenBalance = 0;
-                updateGameUI();
-            }
-        }
-
-        // ----------------------------------------
-        // 아이템 샵 로직
-        // ----------------------------------------
-        function openShopModal() {
-            document.getElementById('my-game-coins').innerText = gameState.gameCoins.toLocaleString();
-            renderShopItems();
-            shopModal.style.display = 'flex';
-        }
-        function closeShopModal() { shopModal.style.display = 'none'; }
-
-        function renderShopItems() {
-            const shopGrid = document.getElementById('shop-items-grid');
-            shopGrid.innerHTML = ''; // 기존 아이템 초기화
-
-            shopItems.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = `shop-item ${gameState.boughtItems[item.id] ? 'item-bought' : ''}`;
-                itemEl.onclick = () => buyItem(item.id);
-                
-                const isBought = gameState.boughtItems[item.id];
-                const canAfford = gameState.gameCoins >= item.price;
-
-                itemEl.innerHTML = `
-                    <div class="item-icon">${item.icon}</div>
-                    <div class="item-name">${item.name}</div>
-                    <div class="item-price ${(!canAfford && !isBought) ? 'sold-out' : ''}">${isBought ? '구매 완료' : `${item.price} 💰`}</div>
-                `;
-                shopGrid.appendChild(itemEl);
+            if (isPaused) return;
+            const ang = Math.random() * Math.PI * 2;
+            const dist = 600;
+            const elapsed = (Date.now() - startTime) / 1000;
+            enemies.push({
+                x: player.x + Math.cos(ang) * dist,
+                y: player.y + Math.sin(ang) * dist,
+                hp: 2 + Math.floor(elapsed / 30), // 시간 갈수록 피통 커짐
+                size: 15,
+                color: `hsl(${elapsed * 5 % 360}, 70%, 50%)` // 시간 갈수록 색깔 변함
             });
+        }, 800);
+
+        function upgrade(type) {
+            skills[type]++;
+            isPaused = false;
+            document.getElementById('levelUp').style.display = 'none';
         }
 
-        function buyItem(itemId) {
-            const item = shopItems.find(i => i.id === itemId);
-            if (!item) return;
+        function gameLoop() {
+            if (!isPaused) {
+                update();
+                draw();
+            }
+            requestAnimationFrame(gameLoop);
+        }
 
-            if (gameState.boughtItems[item.id]) {
-                msgEl.innerText = "이미 구매한 아이템입니다!";
-                return;
+        function update() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').innerText = `${Math.floor(elapsed/60)}:${elapsed%60}`;
+
+            // 플레이어는 항상 중앙 (카메라가 따라감)
+            camera.x = player.x - canvas.width/2;
+            camera.y = player.y - canvas.height/2;
+
+            // 적 추적 및 공격
+            enemies.forEach((e, ei) => {
+                const ang = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(ang) * 1.5;
+                e.y += Math.sin(ang) * 1.5;
+
+                // 플레이어 충돌
+                if (Math.hypot(player.x - e.x, player.y - e.y) < player.size + e.size) {
+                    hp -= 0.1;
+                    document.getElementById('hpInner').style.width = hp + "%";
+                }
+            });
+
+            // 자동 사격 (가까운 적에게)
+            if (Date.now() % 30 === 0 && enemies.length > 0) {
+                const target = enemies[0];
+                const ang = Math.atan2(target.y - player.y, target.x - player.x);
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(ang) * 7, vy: Math.sin(ang) * 7, size: 4 + skills.gun });
             }
 
-            if (gameState.gameCoins >= item.price) {
-                gameState.gameCoins -= item.price;
-                gameState.boughtItems[item.id] = true;
-                msgEl.innerText = `${item.name}을 구매했습니다!`;
-                
-                // 구매한 아이템 시각적으로 적용 (예: 캐릭터에 이모지 추가)
-                // charEl.innerText += item.icon; // 캐릭터 이모지에 직접 추가하거나
-                // charEl.style.backgroundImage = `url('./assets/doojjonku-with-${item.id}.gif')`; // 새 이미지로 변경
+            // 총알 이동
+            bullets.forEach((b, bi) => {
+                b.x += b.vx; b.y += b.vy;
+                enemies.forEach((e, ei) => {
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.size) {
+                        e.hp -= skills.gun;
+                        bullets.splice(bi, 1);
+                        if (e.hp <= 0) {
+                            orbs.push({x: e.x, y: e.y});
+                            enemies.splice(ei, 1);
+                            score += 10;
+                            document.getElementById('score').innerText = score;
+                        }
+                    }
+                });
+            });
 
-                closeShopModal(); // 구매 후 상점 닫기
-                updateGameUI(); // UI 업데이트 (게임 코인 및 캐릭터)
-            } else {
-                msgEl.innerText = "코인이 부족합니다!";
+            // 경험치 획득
+            orbs.forEach((o, oi) => {
+                if (Math.hypot(player.x - o.x, player.y - o.y) < 30) {
+                    orbs.splice(oi, 1);
+                    exp++;
+                    if (exp >= level * 3) {
+                        level++; exp = 0;
+                        isPaused = true;
+                        document.getElementById('levelUp').style.display = 'block';
+                        document.getElementById('level').innerText = level;
+                    }
+                }
+            });
+
+            // 마우스 방향으로 캐릭터 천천히 이동 (필드 누비기)
+            // 실제 mattle.fun처럼 마우스 쪽으로 캐릭터 좌표가 바뀝니다.
+            // window.onmousemove로 mouseX, mouseY 받아서 구현 가능
+        }
+
+        // 키보드 이동 추가
+        const keys = {};
+        window.onkeydown = e => keys[e.key] = true;
+        window.onkeyup = e => keys[e.key] = false;
+        function move() {
+            if (keys['w'] || keys['ArrowUp']) player.y -= 3;
+            if (keys['s'] || keys['ArrowDown']) player.y += 3;
+            if (keys['a'] || keys['ArrowLeft']) player.x -= 3;
+            if (keys['d'] || keys['ArrowRight']) player.x += 3;
+            requestAnimationFrame(move);
+        }
+        move();
+
+        function draw() {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 그리드 배경 (이동 체감을 위해)
+            ctx.strokeStyle = '#333';
+            for(let i=0; i<canvas.width; i+=50) {
+                ctx.beginPath(); ctx.moveTo(i - (camera.x % 50), 0); ctx.lineTo(i - (camera.x % 50), canvas.height); ctx.stroke();
             }
-        }
-        
-        // ----------------------------------------
-        // 유틸리티 함수
-        // ----------------------------------------
-        function formatTokenBalance(amount) {
-            if (amount === 0) return "0";
-            if (amount >= 1000000000) return (amount / 1000000000).toFixed(1) + "B";
-            if (amount >= 1000000) return (amount / 1000000).toFixed(1) + "M";
-            if (amount >= 1000) return (amount / 1000).toFixed(1) + "K";
-            return amount.toLocaleString();
-        }
-        function formatAddress(address) {
-            if (!address) return "지갑 미연결";
-            return address.substring(0, 4) + '...' + address.substring(address.length - 4);
+            for(let i=0; i<canvas.height; i+=50) {
+                ctx.beginPath(); ctx.moveTo(0, i - (camera.y % 50)); ctx.lineTo(canvas.width, i - (camera.y % 50)); ctx.stroke();
+            }
+
+            // 적 (색깔 점)
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.arc(e.x - camera.x, e.y - camera.y, e.size, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 총알
+            bullets.forEach(b => {
+                ctx.fillStyle = 'yellow';
+                ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, b.size, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 경험치
+            orbs.forEach(o => {
+                ctx.fillStyle = 'cyan';
+                ctx.beginPath(); ctx.arc(o.x - camera.x, o.y - camera.y, 5, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 플레이어 (중앙 고정)
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size, 0, Math.PI*2); ctx.fill();
         }
 
-        // 초기 로드 시 UI 업데이트
-        updateGameUI();
+        gameLoop();
     </script>
 </body>
 </html>
