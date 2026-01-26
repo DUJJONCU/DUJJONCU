@@ -3,165 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DooJjonKu: Pure Code Edition</title>
+    <title>DooJjonKu Survivors: Final</title>
     <style>
         * { touch-action: none; user-select: none; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
-        body { margin: 0; overflow: hidden; background: #000; color: #fff; }
+        body { margin: 0; overflow: hidden; background: #050505; color: #fff; }
         canvas { display: block; image-rendering: pixelated; }
         
-        #ui { position: absolute; inset: 0; pointer-events: none; padding: 20px; }
+        /* UI 레이어 */
+        #ui { position: absolute; inset: 0; pointer-events: none; padding: 25px; z-index: 10; }
         #boss-warn { 
-            position: fixed; top: 30%; left: 0; width: 100%; background: rgba(255,0,0,0.7); 
-            color: white; text-align: center; padding: 20px; font-size: 40px; font-weight: 900;
-            display: none; animation: flash 0.5s infinite; z-index: 100;
+            position: fixed; top: 25%; left: 0; width: 100%; background: rgba(200, 0, 0, 0.8); 
+            color: white; text-align: center; padding: 30px; font-size: 3rem; font-weight: 900;
+            display: none; animation: flash 0.6s infinite; 
         }
-        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        .orb-group { position: absolute; bottom: 30px; display: flex; width: calc(100% - 40px); justify-content: space-between; }
-        .orb { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #444; overflow: hidden; background: #111; position: relative; }
-        .fill { position: absolute; bottom: 0; width: 100%; transition: height 0.3s; }
+        .orb-group { position: absolute; bottom: 30px; display: flex; width: calc(100% - 50px); justify-content: space-between; }
+        .orb { width: 100px; height: 100px; border-radius: 50%; border: 4px solid #333; overflow: hidden; background: #111; position: relative; box-shadow: 0 0 20px #000; }
+        .fill { position: absolute; bottom: 0; width: 100%; transition: height 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
+        
+        #start-btn { 
+            position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; 
+            z-index: 100; cursor: pointer; font-size: 2rem; font-weight: bold; letter-spacing: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="boss-warn">WARNING: BOSS APPROACHING</div>
+    <div id="start-btn" onclick="initGame()">ENTER THE DUNGEON</div>
+    <div id="boss-warn">WARNING: BOSS DETECTED</div>
     
     <div id="ui">
-        <div id="stats" style="color:gold; font-size:18px;">KILLS: <span id="kill-count">0</span></div>
+        <div id="stats" style="color:gold; font-size:22px; text-shadow: 2px 2px 4px #000;">
+            KILLS: <span id="k-count">0</span> | LV: <span id="l-count">1</span>
+        </div>
         <div class="orb-group">
-            <div class="orb"><div id="hp-fill" class="fill" style="background: #a00; height: 100%;"></div></div>
-            <div class="orb"><div id="mp-fill" class="fill" style="background: #06a; height: 0%;"></div></div>
+            <div class="orb"><div id="hp-fill" class="fill" style="background: linear-gradient(0deg, #600, #f00); height: 100%;"></div></div>
+            <div class="orb"><div id="mp-fill" class="fill" style="background: linear-gradient(0deg, #026, #09f); height: 0%;"></div></div>
         </div>
     </div>
 
-    <canvas id="game"></canvas>
+    <canvas id="c"></canvas>
 
     <script>
-        const canvas = document.getElementById('game');
+        const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
-        let player, isLive = true, kills = 0, hp = 100, mp = 0, tick = 0;
+        let player, isLive = false, kills = 0, hp = 100, mp = 0, lv = 1, tick = 0;
         let enemies = [], particles = [], shake = 0, isBossMode = false;
+
+        // 이미지 로드
+        const imgP = new Image(); imgP.src = 'player_sheet.png';
+        const imgE = new Image(); imgE.src = 'enemy_sheet.png';
+        const imgB = new Image(); imgB.src = 'boss_image.png';
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        player = { x: 0, y: 0, vx: 0, vy: 0, spd: 3 };
-
-        // --- 사운드 생성기 (코드로 만드는 효과음) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playTone(freq, duration, type = 'sawtooth') {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        function initGame() {
+            document.getElementById('start-btn').style.display = 'none';
+            player = { x: 0, y: 0, vx: 0, vy: 0, spd: 3.5, w: 0, h: 0 };
+            isLive = true; loop();
         }
 
-        // --- 조작 (터치 드래그) ---
-        let touch = { active: false, x: 0, y: 0 };
-        window.addEventListener('touchstart', e => { touch.active = true; touch.x = e.touches[0].clientX; touch.y = e.touches[0].clientY; audioCtx.resume(); });
+        // --- 사운드 엔진 (비프음) ---
+        const aCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function sfx(f, d, t='sine') {
+            const o = aCtx.createOscillator(); const g = aCtx.createGain();
+            o.type = t; o.frequency.value = f; g.gain.value = 0.1;
+            o.connect(g); g.connect(aCtx.destination);
+            o.start(); g.gain.exponentialRampToValueAtTime(0.01, aCtx.currentTime + d); o.stop(aCtx.currentTime + d);
+        }
+
+        // --- 조작 (가상 조이스틱) ---
+        let joy = { active: false, x: 0, y: 0 };
+        window.addEventListener('touchstart', e => { 
+            joy.active = true; joy.x = e.touches[0].clientX; joy.y = e.touches[0].clientY; 
+            if(aCtx.state === 'suspended') aCtx.resume();
+        });
         window.addEventListener('touchmove', e => {
-            if(!touch.active) return;
-            const dx = e.touches[0].clientX - touch.x, dy = e.touches[0].clientY - touch.y;
-            const ang = Math.atan2(dy, dx); const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
+            if(!joy.active) return;
+            const dx = e.touches[0].clientX - joy.x, dy = e.touches[0].clientY - joy.y;
+            const ang = Math.atan2(dy, dx), dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
             player.vx = Math.cos(ang) * (dist/50) * player.spd;
             player.vy = Math.sin(ang) * (dist/50) * player.spd;
         });
-        window.addEventListener('touchend', () => { touch.active = false; player.vx = 0; player.vy = 0; });
-
-        // --- 캐릭터 그리기 로직 (스프라이트 대체) ---
-        function drawWarrior(x, y, t, move) {
-            const bob = Math.sin(t * 0.2) * 4;
-            const walk = move ? Math.sin(t * 0.4) * 8 : 0;
-            ctx.save(); ctx.translate(x, y);
-            // 그림자
-            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, 20, 15, 7, 0, 0, Math.PI*2); ctx.fill();
-            // 몸통
-            ctx.fillStyle = '#555'; ctx.fillRect(-12, -15 + bob, 24, 25);
-            ctx.fillStyle = '#ffdbac'; ctx.fillRect(-8, -25 + bob, 16, 12); // 얼굴
-            ctx.fillStyle = '#000'; ctx.fillRect(-5, -20 + bob, 2, 2); ctx.fillRect(3, -20 + bob, 2, 2); // 눈
-            // 다리
-            ctx.fillStyle = '#333'; ctx.fillRect(-10, 10 + walk, 7, 10); ctx.fillRect(3, 10 - walk, 7, 10);
-            // 무기 (철퇴)
-            ctx.fillStyle = '#844'; ctx.fillRect(15, -10 + bob, 5, 30);
-            ctx.fillStyle = '#aaa'; ctx.fillRect(10, 15 + bob, 15, 15);
-            ctx.restore();
-        }
-
-        function spawnBoss() {
-            isBossMode = true;
-            document.getElementById('boss-warn').style.display = 'block';
-            playTone(100, 1, 'square'); // 웅장한 저음
-            setTimeout(() => {
-                document.getElementById('boss-warn').style.display = 'none';
-                enemies.push({ x: player.x, y: player.y - 400, hp: 500, maxHp: 500, isBoss: true, spd: 0.5 });
-            }, 3000);
-        }
+        window.addEventListener('touchend', () => { joy.active = false; player.vx = 0; player.vy = 0; });
 
         function update() {
+            if(!isLive) return;
             player.x += player.vx; player.y += player.vy;
             tick++;
-            
-            // 보스 체크
-            if(kills >= 30 && !isBossMode) spawnBoss();
 
-            // 몹 스폰
-            if(enemies.length < (isBossMode ? 5 : 15)) {
+            // 보스 등장 조건 (30킬)
+            if(kills >= 30 && !isBossMode) {
+                isBossMode = true;
+                document.getElementById('boss-warn').style.display = 'block';
+                sfx(100, 1.5, 'sawtooth');
+                setTimeout(() => {
+                    document.getElementById('boss-warn').style.display = 'none';
+                    enemies.push({ x: player.x, y: player.y - 500, hp: 1000, maxHp: 1000, isBoss: true, spd: 1 });
+                }, 3000);
+            }
+
+            // 적 스폰
+            if(enemies.length < (isBossMode ? 8 : 20)) {
                 const a = Math.random()*Math.PI*2;
-                enemies.push({ x: player.x+Math.cos(a)*600, y: player.y+Math.sin(a)*600, hp: 3, spd: 1 });
+                enemies.push({ x: player.x+Math.cos(a)*600, y: player.y+Math.sin(a)*600, hp: 5+lv, spd: 0.8+Math.random() });
             }
 
             enemies.forEach((e, i) => {
                 const ang = Math.atan2(player.y - e.y, player.x - e.x);
                 e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd;
-                
-                // 자동 공격 (반경 내 적)
-                if(Math.hypot(player.x - e.x, player.y - e.y) < 100 && tick % 20 === 0) {
-                    e.hp -= 1; shake = 5; playTone(440, 0.1);
+
+                // 자동 공격 (반경 체크 및 타격감)
+                const dist = Math.hypot(player.x - e.x, player.y - e.y);
+                if(dist < 120 && tick % 25 === 0) {
+                    e.hp -= (5 + lv); shake = 8; sfx(400, 0.1, 'square');
                     if(e.hp <= 0) {
                         enemies.splice(i, 1); kills++; mp = Math.min(100, mp + 5);
-                        document.getElementById('kill-count').innerText = kills;
+                        if(kills % 20 === 0) lv++;
                     }
                 }
-                if(Math.hypot(player.x - e.x, player.y - e.y) < 20) hp -= 0.2;
+                if(dist < 30) hp -= 0.4;
             });
 
-            if(shake > 0) shake *= 0.9;
+            if(shake > 0) shake *= 0.85;
             document.getElementById('hp-fill').style.height = hp + "%";
             document.getElementById('mp-fill').style.height = mp + "%";
+            document.getElementById('k-count').innerText = kills;
+            document.getElementById('l-count').innerText = lv;
+            if(hp <= 0) { alert("Game Over"); location.reload(); }
         }
 
         function draw() {
             ctx.save();
             ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
-            ctx.fillStyle = '#0a0a0c'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            const cx = player.x - canvas.width/2, cy = player.y - canvas.height/2;
+            ctx.fillStyle = '#08080a'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            
+            const camX = player.x - canvas.width/2;
+            const camY = player.y - canvas.height/2;
 
-            // 배경 격자
-            ctx.strokeStyle = '#15151a';
-            for(let x=-cx%80; x<canvas.width; x+=80) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
-            for(let y=-cy%80; y<canvas.height; y+=80) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+            // 배경 (그리드)
+            ctx.strokeStyle = '#111';
+            for(let x=-camX%100; x<canvas.width; x+=100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+            for(let y=-camY%100; y<canvas.height; y+=100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
 
-            // 적 렌더링
+            // 몬스터 (enemy_sheet 적용)
             enemies.forEach(e => {
-                const isB = e.isBoss;
-                const size = isB ? 60 : 20;
-                ctx.fillStyle = isB ? '#f00' : '#4f4';
-                ctx.fillRect(e.x-cx-size/2, e.y-cy-size/2, size, size);
-                if(isB) { // 보스 체력바
-                    ctx.fillStyle = '#222'; ctx.fillRect(e.x-cx-50, e.y-cy-60, 100, 10);
-                    ctx.fillStyle = '#f00'; ctx.fillRect(e.x-cx-50, e.y-cy-60, (e.hp/e.maxHp)*100, 10);
+                if(e.isBoss) {
+                    // 보스 페이즈 연출
+                    ctx.shadowBlur = 30; ctx.shadowColor = 'purple';
+                    ctx.drawImage(imgB, e.x-camX-100, e.y-camY-100, 200, 200);
+                    ctx.shadowBlur = 0;
+                    // 보스 HP 바
+                    ctx.fillStyle = '#222'; ctx.fillRect(e.x-camX-80, e.y-cy-120, 160, 12);
+                    ctx.fillStyle = '#f00'; ctx.fillRect(e.x-camX-80, e.y-cy-120, (e.hp/e.maxHp)*160, 12);
+                } else {
+                    const fw = imgE.width/7, fh = imgE.height/5;
+                    const frame = Math.floor(tick/10)%7;
+                    ctx.drawImage(imgE, frame*fw, 0, fw, fh, e.x-camX-32, e.y-camY-32, 64, 64);
                 }
             });
 
-            drawWarrior(canvas.width/2, canvas.height/2, tick, Math.abs(player.vx)+Math.abs(player.vy) > 0.1);
+            // 플레이어 (player_sheet 적용)
+            const pfw = imgP.width/8, pfh = imgP.height/4;
+            const pFrame = Math.floor(tick/8)%8;
+            const bob = Math.sin(tick*0.1)*5;
+            
+            ctx.shadowBlur = 15; ctx.shadowColor = 'rgba(0,255,255,0.5)';
+            ctx.drawImage(imgP, pFrame*pfw, 0, pfw, pfh, canvas.width/2-40, canvas.height/2-40+bob, 80, 80);
+            ctx.shadowBlur = 0;
+
             ctx.restore();
         }
 
         function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
     </script>
 </body>
 </html>
