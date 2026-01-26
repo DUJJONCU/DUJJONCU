@@ -3,236 +3,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>DooJjonKu Ultimate</title>
+    <title>DooJjonKu Survivors</title>
     <style>
-        * { touch-action: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; color: white; }
+        /* 고딕체 통일 및 기본 설정 */
+        * { 
+            touch-action: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; 
+            font-family: 'Pretendard', 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+        }
+        body { margin: 0; overflow: hidden; background: #0a0a0a; color: white; }
         canvas { display: block; }
-        #ui-top { position: absolute; top: 10px; width: 100%; padding: 0 20px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
-        #bars { display: flex; flex-direction: column; gap: 5px; }
-        .bar { width: 120px; height: 8px; border: 1px solid #fff; position: relative; }
-        #hp-inner { height: 100%; background: #ff4444; width: 100%; }
-        #mp-inner { height: 100%; background: #4444ff; width: 0%; }
-        #rank-btn { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); pointer-events: auto; background: none; border: 1px solid gold; color: gold; padding: 5px 10px; cursor: pointer; }
-        
-        #start-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .class-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
-        .card { border: 1px solid #555; padding: 10px; text-align: center; cursor: pointer; width: 100px; font-size: 12px; }
-        .card:hover { border-color: cyan; }
 
-        #joy-base { position: absolute; bottom: 30px; left: 30px; width: 80px; height: 80px; border-radius: 50%; border: 1px solid #333; }
-        #joy-stick { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: rgba(0,255,204,0.3); border-radius: 50%; }
-        #ult-btn { position: absolute; bottom: 35px; right: 35px; width: 70px; height: 70px; border-radius: 50%; border: 2px solid gold; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: gold; background: rgba(218,165,32,0.1); opacity: 0.3; }
-        #ult-btn.active { opacity: 1; box-shadow: 0 0 15px gold; }
+        /* UI 레이아웃 */
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 20px; }
+        #top-info { display: flex; justify-content: space-between; align-items: flex-start; }
+        .bar-group { display: flex; flex-direction: column; gap: 8px; }
+        .bar-container { width: 160px; height: 12px; background: rgba(255,255,255,0.1); border: 1px solid #555; border-radius: 6px; overflow: hidden; }
+        #hp-bar { height: 100%; background: linear-gradient(90deg, #ff4d4d, #ff8080); width: 100%; transition: 0.2s; }
+        #mp-bar { height: 100%; background: linear-gradient(90deg, #00d4ff, #00f2ff); width: 0%; transition: 0.2s; }
+        
+        #kill-display { font-size: 24px; font-weight: 800; color: #ffee00; text-shadow: 2px 2px 0px #000; }
+        #stage-text { font-size: 14px; opacity: 0.8; margin-top: 5px; }
+
+        /* 클래스 선택창 */
+        #selector { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 30px; }
+        .btn { background: #222; border: 2px solid #444; padding: 15px; border-radius: 12px; color: white; cursor: pointer; text-align: center; width: 110px; transition: 0.2s; pointer-events: auto; }
+        .btn:active { transform: scale(0.9); border-color: #00ffcc; }
+
+        /* 컨트롤러 */
+        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; }
+        #joystick-stick { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(0,255,204,0.4); border-radius: 50%; pointer-events: none; }
+        #ult-btn { position: absolute; bottom: 45px; right: 45px; width: 85px; height: 85px; background: rgba(255,215,0,0.1); border: 3px solid gold; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: gold; opacity: 0.3; pointer-events: auto; }
+        #ult-btn.ready { opacity: 1; box-shadow: 0 0 20px gold; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
-    <div id="start-screen">
-        <h2 style="color:cyan">SELECT CLASS</h2>
-        <div class="class-grid">
-            <div class="card" onclick="start('sword')">검사<br>(근접)</div>
-            <div class="card" onclick="start('arch')">궁수<br>(원거리)</div>
-            <div class="card" onclick="start('wiz')">법사<br>(범위)</div>
-            <div class="card" onclick="start('wolf')">늑대<br>(랜덤)</div>
-            <div class="card" onclick="start('zom')">좀비<br>(생존)</div>
+
+    <div id="selector">
+        <h1 style="letter-spacing: -1px;">DooJjonKu Survivors</h1>
+        <p style="opacity: 0.6;">캐릭터를 선택하여 생존을 시작하세요</p>
+        <div class="grid">
+            <div class="btn" onclick="init('knight')">검사</div>
+            <div class="btn" onclick="init('ranger')">궁수</div>
+            <div class="btn" onclick="init('mage')">마법사</div>
         </div>
     </div>
 
-    <div id="ui-top">
-        <div id="bars">
-            <div class="bar"><div id="hp-inner"></div></div>
-            <div class="bar"><div id="mp-inner"></div></div>
-            <div style="font-size: 10px; margin-top:5px;">LV: <span id="lv">1</span> / STAGE: <span id="st">1</span></div>
+    <div id="ui-layer">
+        <div id="top-info">
+            <div class="bar-group">
+                <div class="bar-container"><div id="hp-bar"></div></div>
+                <div class="bar-container"><div id="mp-bar"></div></div>
+                <div id="stage-text">STAGE 1 - 심리스 모드</div>
+            </div>
+            <div id="kill-display">000</div>
         </div>
-        <div id="score-ui">KILLS: 0</div>
+        <div id="joystick-base"><div id="joystick-stick"></div></div>
+        <div id="ult-btn">ULT</div>
     </div>
-    <button id="rank-btn" onclick="showRank()">RANKING</button>
 
-    <div id="joy-base"><div id="joy-stick"></div></div>
-    <div id="ult-btn" onclick="useUlt()">ULTIMATE</div>
-
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="game"></canvas>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        let stage = 1, kills = 0, mp = 0, hp = 100, isPaused = true, score = 0;
-        let player, camera, enemies = [], bullets = [], orbs = [], chests = [], items = [];
-        let moveX = 0, moveY = 0, isJoy = false, lastAngle = 0;
+        let stage = 1, kills = 0, mp = 0, hp = 100, isLive = false;
+        let player, camera, enemies = [], particles = [], chests = [], items = [], bullets = [];
+        let moveX = 0, moveY = 0, isTouch = false, lastDir = 0;
 
-        const classInfo = {
-            sword: { color: '#00ffcc', spd: 1.8, range: 40, ult: '전체베기' },
-            arch: { color: '#ffee00', spd: 2.3, range: 250, ult: '화살비' },
-            wiz: { color: '#ff00ff', spd: 1.5, range: 350, ult: '시간정지' },
-            wolf: { color: '#ff8800', spd: 2.5, range: 60, ult: '무적돌진' },
-            zom: { color: '#88ff00', spd: 1.2, range: 100, ult: '좀비군단' }
+        const classes = {
+            knight: { color: '#00ffcc', spd: 2, range: 60, effect: 'cyan' },
+            ranger: { color: '#ffea00', spd: 2.8, range: 240, effect: 'yellow' },
+            mage: { color: '#bf00ff', spd: 1.6, range: 350, effect: 'purple' }
         };
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        function start(type) {
-            player = { x: 0, y: 0, type, ...classInfo[type], size: 5, maxHp: 100 };
+        function init(type) {
+            player = { x: 0, y: 0, ...classes[type], type, size: 10 };
             camera = { x: 0, y: 0 };
-            document.getElementById('start-screen').style.display = 'none';
-            isPaused = false; loop();
+            document.getElementById('selector').style.display = 'none';
+            isLive = true;
+            loop();
         }
 
-        // --- 입력 로직 ---
-        const joyBase = document.getElementById('joy-base');
-        const joyStick = document.getElementById('joy-stick');
-        joyBase.addEventListener('touchstart', (e) => { e.preventDefault(); isJoy = true; });
+        // --- 조이스틱 제어 ---
+        const jBase = document.getElementById('joystick-base');
+        const jStick = document.getElementById('joystick-stick');
+        jBase.addEventListener('touchstart', (e) => { e.preventDefault(); isTouch = true; });
         window.addEventListener('touchmove', (e) => {
-            if(!isJoy) return;
+            if(!isTouch) return;
             const t = e.touches[0];
-            const r = joyBase.getBoundingClientRect();
-            const dx = t.clientX - (r.left + 40), dy = t.clientY - (r.top + 40);
-            const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 40);
+            const r = jBase.getBoundingClientRect();
+            const dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
+            const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
             const ang = Math.atan2(dy, dx);
-            lastAngle = ang;
-            joyStick.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px)`;
-            moveX = (Math.cos(ang)*dist)/40; moveY = (Math.sin(ang)*dist)/40;
+            lastDir = ang;
+            jStick.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px)`;
+            moveX = (Math.cos(ang)*dist)/50; moveY = (Math.sin(ang)*dist)/50;
         });
-        window.addEventListener('touchend', () => { isJoy = false; moveX = 0; moveY = 0; joyStick.style.transform = 'translate(0,0)'; });
+        window.addEventListener('touchend', () => { isTouch = false; moveX = 0; moveY = 0; jStick.style.transform = 'translate(0,0)'; });
 
-        function useUlt() {
-            if(mp < 100) return;
-            mp = 0; updateUI();
-            // 필살기 효과 연출 (간략화)
-            enemies.forEach(e => e.hp -= 200);
-            ctx.fillStyle = "gold"; ctx.fillRect(0,0,canvas.width, canvas.height);
-        }
-
-        function updateUI() {
-            document.getElementById('hp-inner').style.width = hp + "%";
-            document.getElementById('mp-inner').style.width = mp + "%";
-            document.getElementById('score-ui').innerText = "KILLS: " + kills;
-            const btn = document.getElementById('ult-btn');
-            if(mp >= 100) btn.classList.add('active'); else btn.classList.remove('active');
-        }
-
-        function loop() {
-            if(isPaused) return;
-            update(); draw();
-            requestAnimationFrame(loop);
+        // --- 파티클 시스템 ---
+        function spawnPart(x, y, color) {
+            for(let i=0; i<5; i++) {
+                particles.push({x, y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 20, color});
+            }
         }
 
         function update() {
+            if(!isLive) return;
             player.x += moveX * player.spd;
             player.y += moveY * player.spd;
             camera.x = player.x - canvas.width/2;
             camera.y = player.y - canvas.height/2;
 
-            // 몹 스폰 및 지능형 AI (흩어졌다 모이기)
-            if(enemies.length < 30) {
-                const ang = Math.random() * Math.PI * 2;
-                enemies.push({
-                    x: player.x + Math.cos(ang)*600,
-                    y: player.y + Math.sin(ang)*600,
-                    hp: 1 + stage,
-                    speed: 0.3 + Math.random()*0.2, // 아주 천천히
-                    size: 4,
-                    offset: Math.random() * 100 // 흩어지기 위한 값
-                });
+            // 스테이지 자연 자동 전환 (100킬 단위)
+            stage = Math.floor(kills / 100) + 1;
+            document.getElementById('stage-text').innerText = `STAGE ${stage} - ${kills%100}/100`;
+
+            // 몹 생성 (천천히 걷기)
+            if(enemies.length < 20 + stage*5) {
+                const a = Math.random()*Math.PI*2;
+                enemies.push({ x: player.x + Math.cos(a)*600, y: player.y + Math.sin(a)*600, hp: stage, spd: 0.4 + stage*0.1 });
             }
 
-            // 상자 스폰
-            if(Math.random() < 0.005 && chests.length < 3) {
-                chests.push({x: player.x + (Math.random()-0.5)*800, y: player.y + (Math.random()-0.5)*800, hp: 5});
+            // 상자 생성 및 상호작용
+            if(Math.random() < 0.003 && chests.length < 5) {
+                chests.push({ x: player.x + (Math.random()-0.5)*1000, y: player.y + (Math.random()-0.5)*1000, open: false });
             }
-
-            enemies.forEach((e, ei) => {
-                const dist = Math.hypot(player.x - e.x, player.y - e.y);
-                const ang = Math.atan2(player.y - e.y, player.x - e.x);
-                // 약간 지그재그로 오게 하여 유저를 괴롭힘
-                const sway = Math.sin(Date.now()*0.002 + e.offset) * 0.5;
-                e.x += Math.cos(ang + sway) * e.speed;
-                e.y += Math.sin(ang + sway) * e.speed;
-
-                if(dist < 10) hp -= 0.1;
-                
-                bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x-e.x, b.y-e.y) < 10) {
-                        e.hp -= 1; bullets.splice(bi, 1);
-                    }
-                });
-
-                if(e.hp <= 0) {
-                    kills++; mp = Math.min(100, mp + 2);
-                    orbs.push({x: e.x, y: e.y});
-                    enemies.splice(ei, 1);
-                    updateUI();
+            chests.forEach((c, i) => {
+                if(!c.open && Math.hypot(player.x-c.x, player.y-c.y) < 50) {
+                    c.open = true;
+                    items.push({ x: c.x, y: c.y, type: Math.random() > 0.5 ? 'HP' : 'MP' });
+                    spawnPart(c.x, c.y, 'gold');
                 }
             });
 
-            // 상자 파괴 및 아이템
-            chests.forEach((c, ci) => {
+            // 적 AI 및 충돌
+            enemies.forEach((e, i) => {
+                const ang = Math.atan2(player.y-e.y, player.x-e.x);
+                e.x += Math.cos(ang) * e.spd;
+                e.y += Math.sin(ang) * e.spd;
+                if(Math.hypot(player.x-e.x, player.y-e.y) < 15) hp -= 0.1;
+                
                 bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x-c.x, b.y-c.y) < 15) { c.hp -= 1; bullets.splice(bi,1); }
+                    if(Math.hypot(b.x-e.x, b.y-e.y) < 15) {
+                        e.hp--; bullets.splice(bi, 1);
+                        spawnPart(e.x, e.y, player.effect);
+                    }
                 });
-                if(c.hp <= 0) {
-                    const r = Math.random();
-                    let type = 'hp';
-                    if(r > 0.7) type = 'mag'; // 자석
-                    if(r > 0.9) type = 'life'; // 목숨
-                    items.push({x: c.x, y: c.y, type});
-                    chests.splice(ci, 1);
-                }
+                if(e.hp <= 0) { enemies.splice(i, 1); kills++; mp = Math.min(100, mp+1.5); }
             });
 
             // 아이템 획득
             items.forEach((it, i) => {
                 if(Math.hypot(player.x-it.x, player.y-it.y) < 20) {
-                    if(it.type === 'hp') hp = Math.min(100, hp + 30);
-                    if(it.type === 'mag') { /* 모든 구슬 player에게 이동 로직 */ }
+                    if(it.type === 'HP') hp = Math.min(100, hp+20);
+                    else mp = Math.min(100, mp+25);
                     items.splice(i, 1);
-                    updateUI();
                 }
             });
 
-            // 자동 사격 (클래스별 특성에 맞게)
-            if(Date.now() % 500 < 20) {
-                bullets.push({x: player.x, y: player.y, vx: Math.cos(lastAngle)*6, vy: Math.sin(lastAngle)*6});
+            // 자동 공격 이펙트
+            if(Date.now() % 600 < 20) {
+                bullets.push({ x: player.x, y: player.y, vx: Math.cos(lastDir)*7, vy: Math.sin(lastDir)*7 });
             }
 
-            if(hp <= 0) gameOver();
+            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life--; if(p.life<=0) particles.splice(i,1); });
+            bullets.forEach((b, i) => { b.x += b.vx; b.y += b.vy; });
+
+            // UI 업데이트
+            document.getElementById('hp-bar').style.width = hp + "%";
+            document.getElementById('mp-bar').style.width = mp + "%";
+            document.getElementById('kill-display').innerText = kills.toString().padStart(3, '0');
+            const u = document.getElementById('ult-btn');
+            if(mp >= 100) u.classList.add('ready'); else u.classList.remove('ready');
+
+            if(hp <= 0) { alert("Game Over"); location.reload(); }
+        }
+
+        // --- 도트 그리기 엔진 ---
+        function drawPixel(x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - camera.x, y - camera.y, size, size);
         }
 
         function draw() {
-            ctx.fillStyle = '#050505'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            ctx.strokeStyle = '#111';
-            for(let x=-camera.x%50; x<canvas.width; x+=50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
-            for(let y=-camera.y%50; y<canvas.height; y+=50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            
+            // 배경 격자 (도트 감성)
+            ctx.strokeStyle = '#151515';
+            for(let i=-camera.x%80; i<canvas.width; i+=80) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let i=-camera.y%80; i<canvas.height; i+=80) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
 
-            enemies.forEach(e => { ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(e.x-camera.x, e.y-camera.y, e.size, 0, Math.PI*2); ctx.fill(); });
+            chests.forEach(c => { if(!c.open) drawPixel(c.x-8, c.y-8, 16, '#8b4513'); });
+            items.forEach(it => { drawPixel(it.x-4, it.y-4, 8, it.type==='HP'?'#ff0044':'#00a2ff'); });
+            enemies.forEach(e => { drawPixel(e.x-6, e.y-6, 12, '#333'); drawPixel(e.x-2, e.y-4, 4, 'red'); });
             bullets.forEach(b => { ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(b.x-camera.x, b.y-camera.y, 2, 0, Math.PI*2); ctx.fill(); });
-            orbs.forEach(o => { ctx.fillStyle = 'cyan'; ctx.beginPath(); ctx.arc(o.x-camera.x, o.y-camera.y, 1.5, 0, Math.PI*2); ctx.fill(); });
-            chests.forEach(c => { ctx.fillStyle = 'brown'; ctx.fillRect(c.x-camera.x-8, c.y-camera.y-8, 16, 16); });
-            items.forEach(it => { ctx.fillStyle = it.type==='hp'?'lime':'yellow'; ctx.beginPath(); ctx.arc(it.x-camera.x, it.y-camera.y, 5, 0, Math.PI*2); ctx.fill(); });
+            particles.forEach(p => { ctx.globalAlpha = p.life/20; ctx.fillStyle = p.color; ctx.fillRect(p.x-camera.x, p.y-camera.y, 3, 3); ctx.globalAlpha = 1; });
 
+            // 플레이어 도트 캐릭터
+            const px = canvas.width/2, py = canvas.height/2;
             ctx.fillStyle = player.color;
-            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, player.size, 0, Math.PI*2); ctx.fill();
+            ctx.fillRect(px-8, py-8, 16, 16); // 몸통
+            ctx.fillStyle = 'white'; ctx.fillRect(px-4, py-12, 8, 8); // 머리
+            ctx.fillStyle = '#333'; ctx.fillRect(px-2, py-10, 2, 2); // 눈
         }
 
-        function gameOver() {
-            isPaused = true;
-            saveScore(kills);
-            alert("GAME OVER! KILLS: " + kills);
-            location.reload();
-        }
-
-        function saveScore(s) {
-            let scores = JSON.parse(localStorage.getItem('dooRank') || "[]");
-            scores.push({s, date: new Date().toLocaleDateString()});
-            scores.sort((a,b) => b.s - a.s);
-            localStorage.setItem('dooRank', JSON.stringify(scores.slice(0, 500)));
-        }
-
-        function showRank() {
-            let scores = JSON.parse(localStorage.getItem('dooRank') || "[]");
-            let msg = scores.slice(0, 10).map((x, i) => `${i+1}. ${x.s}점`).join('\n');
-            alert("🏆 TOP 10 RANKING 🏆\n" + (msg || "아직 기록이 없습니다."));
-        }
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
     </script>
 </body>
 </html>
