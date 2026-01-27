@@ -2,134 +2,166 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>두쫀쿠 다마고치 v3.0</title>
+    <title>DUJJONCU Game</title>
     <style>
-        body { background: #e9e9e9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; }
-        #device { background: #333; padding: 25px; border-radius: 45px; box-shadow: 0 10px 0 #111; width: 300px; text-align: center; position: relative; }
+        body { background: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; overflow: hidden; }
         
-        /* 액정 화면 */
+        /* 게임기 본체 - 시인성을 위해 크게 키움 */
+        #game-console { 
+            background: #4b4b4b; padding: 40px; border-radius: 60px; 
+            box-shadow: 0 15px 0 #222, inset 0 -5px 10px rgba(0,0,0,0.5); 
+            width: 400px; text-align: center; position: relative;
+        }
+
+        /* 큰 액정 화면 */
         #screen { 
-            background: #9dbb94; width: 250px; height: 300px; margin: 0 auto;
-            border: 6px solid #222; position: relative; overflow: hidden;
-            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            background: #9dbb94; width: 350px; height: 450px; margin: 0 auto;
+            border: 10px solid #333; position: relative; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center;
         }
 
-        /* 캐릭터 스프라이트 (6분할 시트 기준) */
-        #character {
-            width: 150px; height: 150px;
-            background-image: url('여기에_마지막_이미지_주소_넣기'); 
-            background-size: 300px 450px; /* 2열 3행 시트 */
-            background-repeat: no-repeat;
-            image-rendering: pixelated;
-            margin-top: 40px;
+        /* 상단 상태바 */
+        #stats-bar { 
+            width: 100%; height: 40px; background: rgba(0,0,0,0.15); 
+            display: flex; justify-content: space-around; align-items: center; font-weight: bold; font-size: 16px;
         }
 
-        /* 애니메이션 위치 설정 (2x3 시트) */
-        .state-idle { background-position: 0 0; }           /* IDLE */
-        .state-eating { background-position: -150px 0; }    /* EATING */
-        .state-sad { background-position: 0 -300px; }       /* SAD */
-        .state-sleep { background-position: -150px -300px; } /* SLEEPING */
-
-        #stats { padding: 10px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; }
-        .buttons { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; background: #eee; box-shadow: 0 4px 0 #bbb; }
-        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #bbb; }
+        /* 두쫀쿠 캐릭터 컨테이너 */
+        #char-container { position: relative; margin-top: 60px; width: 220px; height: 220px; }
         
-        #rank-ui { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        #character {
+            width: 100%; height: 100%;
+            background: url('여기에_두쫀쿠_도트이미지_주소_넣기') no-repeat center/contain;
+            image-rendering: pixelated; transition: transform 0.2s;
+        }
+
+        /* 이펙트: 반짝이는 별 (CSS 애니메이션) */
+        .star {
+            position: absolute; width: 20px; height: 20px; background: gold;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            animation: blink 0.8s infinite alternate; opacity: 0;
+        }
+
+        @keyframes blink { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1.2); } }
+        
+        /* 진동 애니메이션 */
+        .vibrate { animation: shake 0.2s infinite; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px); }
+            50% { transform: translate(-1px, -1px); }
+            100% { transform: translate(1px, -1px); }
+        }
+
+        /* 하단 메시지 */
+        #msg-box { 
+            position: absolute; bottom: 0; width: 100%; height: 60px; 
+            background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 14px; border-top: 2px solid #333;
+        }
+
+        /* 조작 버튼 */
+        .controls { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .btn { 
+            padding: 20px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 15px; 
+            border: none; background: #ecf0f1; box-shadow: 0 6px 0 #bdc3c7; 
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #bdc3c7; }
+        .btn-feed { background: #f1c40f; color: #7f8c8d; }
     </style>
 </head>
 <body>
 
-<div id="device">
+<div id="game-console">
     <div id="screen">
-        <div id="rank-ui">
-            <h3>BEST RECORD</h3>
-            <h2 id="best-val">0</h2>
-            <button onclick="toggleRank()">CLOSE</button>
+        <div id="stats-bar">
+            <span>🍪 HUNGER: <span id="h-val">100</span></span>
+            <span>🏆 SCORE: <span id="s-val">0</span></span>
         </div>
-        <div id="stats">🍪 <span id="h-val">100</span> | 🏆 <span id="s-val">0</span></div>
-        <div id="character" class="state-idle"></div>
-        <div id="msg" style="padding-bottom: 10px; font-size: 12px;">쫀득쫀득...</div>
+        
+        <div id="char-container">
+            <div id="stars"></div>
+            <div id="character"></div>
+        </div>
+
+        <div id="msg-box">DUJJONCU 대기 중...</div>
     </div>
 
-    <div class="buttons">
-        <button onclick="feed()" style="background: #ffd700;">FEED</button>
-        <button onclick="toggleRank()">RANK</button>
-        <button onclick="location.reload()" style="grid-column: span 2; background: #ff6b6b; color: white;">RESET</button>
+    <div class="controls">
+        <button class="btn btn-feed" onclick="feed()">FEED (밥주기)</button>
+        <button class="btn" onclick="showRank()">RANK (기록)</button>
     </div>
 </div>
 
 <script>
     let hunger = 100;
     let score = 0;
-    let isGameOver = false;
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let isHappy = true;
 
-    // 8비트 사운드 재생
-    function beep(freq, duration, type) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type || 'square';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
+    const char = document.getElementById('character');
+    const starsContainer = document.getElementById('stars');
+    const msgBox = document.getElementById('msg-box');
 
-    const loop = setInterval(() => {
-        if (!isGameOver) {
+    // 1. 상태 업데이트 루프
+    setInterval(() => {
+        if (hunger > 0) {
             hunger -= 2;
-            score += 5;
-            updateUI();
+            score += 10;
+            updateLogic();
         }
-    }, 1500);
+    }, 1000);
 
-    function updateUI() {
+    function updateLogic() {
         document.getElementById('h-val').innerText = hunger;
         document.getElementById('s-val').innerText = score;
-        const char = document.getElementById('character');
-        const msg = document.getElementById('msg');
+
+        // 컨디션 체크 (배고픔 70 이상이면 해피 이펙트)
+        if (hunger > 70) {
+            isHappy = true;
+            char.classList.add('vibrate'); // 진동 추가
+            showStars(true);
+            msgBox.innerText = "DUJJONCU 기분 최고! ✨";
+        } else {
+            isHappy = false;
+            char.classList.remove('vibrate');
+            showStars(false);
+            msgBox.innerText = hunger < 30 ? "배가 고파서 기운이 없어요.." : "두쫀두쫀 쫀득한 대기 중";
+        }
 
         if (hunger <= 0) {
-            gameOver();
-        } else if (hunger < 30) {
-            char.className = 'state-sad';
-            msg.innerText = "배고파서 울고있어요!";
-        } else {
-            char.className = 'state-idle';
-            msg.innerText = "쫀득하게 대기 중";
+            msgBox.innerText = "게임 오버... 눅눅해졌어요.";
+            char.style.opacity = "0.5";
         }
     }
 
+    // 밥 주기 기능
     function feed() {
-        if (isGameOver) return;
-        beep(500, 0.1);
-        hunger = Math.min(100, hunger + 20);
-        document.getElementById('character').className = 'state-eating';
-        document.getElementById('msg').innerText = "와구와구! 맛있다!";
-        setTimeout(updateUI, 1000);
+        if (hunger <= 0) return;
+        hunger = Math.min(100, hunger + 15);
+        char.style.transform = "scale(1.3)"; // 순간적으로 커지는 연출
+        setTimeout(() => char.style.transform = "scale(1)", 200);
+        updateLogic();
     }
 
-    function toggleRank() {
-        beep(800, 0.05, 'sine');
-        const best = localStorage.getItem('dooBest') || 0;
-        document.getElementById('best-val').innerText = best;
-        const ui = document.getElementById('rank-ui');
-        ui.style.display = (ui.style.display === 'flex') ? 'none' : 'flex';
+    // 별 이펙트 생성 함수
+    function showStars(show) {
+        starsContainer.innerHTML = '';
+        if (show) {
+            for (let i = 0; i < 5; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() + 's';
+                starsContainer.appendChild(star);
+            }
+        }
     }
 
-    function gameOver() {
-        isGameOver = true;
-        clearInterval(loop);
-        beep(200, 0.5, 'sawtooth');
-        document.getElementById('character').className = 'state-sleep';
-        document.getElementById('msg').innerText = "눅눅해져서 잠들었습니다...";
-        const best = localStorage.getItem('dooBest') || 0;
-        if (score > best) localStorage.setItem('dooBest', score);
+    function showRank() {
+        const best = localStorage.getItem('dujjonBest') || 0;
+        if (score > best) localStorage.setItem('dujjonBest', score);
+        alert("현재 최고 기록: " + Math.max(best, score) + "점");
     }
 </script>
+
 </body>
 </html>
