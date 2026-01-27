@@ -2,31 +2,57 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>DUJJONCU ONLINE - 60 Days Journey</title>
+    <title>DUJJONCU ONLINE - 60 Days</title>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js"></script>
     <style>
         :root { --lcd: #9dbb94; --gold: #f1c40f; --blue: #3498db; }
         body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; }
+        
+        /* 로그인 레이어 */
         #login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: var(--gold); }
         #user-id-input { padding: 12px; width: 250px; border-radius: 8px; border: none; margin-bottom: 15px; text-align: center; }
+
+        /* 게임기 외형 */
         #game-console { background: #333; padding: 40px; border-radius: 60px; box-shadow: 0 15px 0 #000; width: 360px; border: 4px solid #444; }
         #screen { background: var(--lcd); width: 100%; height: 420px; border: 8px solid #222; border-radius: 10px; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: inset 4px 4px 10px rgba(0,0,0,0.3); }
+
+        /* 경험치 및 상태바 */
         #xp-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.1); }
         #xp-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.3s; }
         #stats-bar { display: flex; justify-content: space-around; padding: 8px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.05); }
-        .shiny-bar { background: linear-gradient(90deg, var(--gold), #fff, var(--gold)); background-size: 200%; animation: shine 1.5s infinite; }
-        @keyframes shine { to { background-position: 200%; } }
-        #char-container { position: relative; margin: 60px auto 0; width: 180px; height: 180px; }
-        #character { width: 100%; height: 100%; background: url('https://i.imgur.com/your-cookie.png') no-repeat center/contain; image-rendering: pixelated; }
-        #title-tag { position: absolute; top: -35px; width: 100%; text-align: center; font-size: 13px; font-weight: bold; color: #d35400; }
+
+        /* ⭐ 핵심: 캐릭터 구역 디자인 수정 ⭐ */
+        #char-container { position: relative; margin: 60px auto 0; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
+        
+        #character { 
+            width: 160px; 
+            height: 160px; 
+            /* ⚠️ 아래 파일 이름이 깃허브에 올린 이름과 대소문자까지 똑같아야 함! */
+            background: url('cookie.png') no-repeat center/contain !important; 
+            image-rendering: pixelated; 
+            position: relative;
+            z-index: 10;
+        }
+
+        #title-tag { position: absolute; top: -40px; width: 100%; text-align: center; font-size: 14px; font-weight: bold; color: #b33939; }
+
+        /* 미니게임 구역 */
+        #minigame-layer { display: none; position: absolute; inset: 0; background: var(--gold); z-index: 100; flex-direction: column; justify-content: center; align-items: center; }
+        .dough { 
+            width: 150px; 
+            height: 120px; 
+            background: url('dough.png') no-repeat center/contain; /* ⚠️ 반죽 이미지 연결 */
+            background-color: transparent;
+            cursor: pointer; 
+        }
+
+        /* 컨트롤 버튼 */
         .controls { margin-top: 30px; display: flex; justify-content: center; gap: 20px; }
         .btn { width: 90px; height: 90px; border-radius: 50%; border: none; cursor: pointer; color: white; font-weight: bold; box-shadow: 0 6px 0 #222; }
         .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #222; }
         .btn-feed { background: var(--gold); color: #333; }
         .btn-rank { background: #7f8c8d; }
-        #minigame-layer { display: none; position: absolute; inset: 0; background: var(--gold); z-index: 100; flex-direction: column; justify-content: center; align-items: center; }
-        .dough { width: 150px; height: 120px; background: white; border-radius: 50%; border: 4px solid #666; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -43,7 +69,7 @@
         <div id="minigame-layer">
             <h3>연타해서 반죽하라!</h3>
             <div class="dough" onclick="hitDough()"></div>
-            <p id="hit-count" style="font-size: 20px; font-weight: bold;">0 / 30</p>
+            <p id="hit-count" style="font-size:20px; font-weight:bold;">0 / 30</p>
         </div>
         <div id="stats-bar">
             <span>🍪 <span id="h-val">100</span></span>
@@ -51,10 +77,10 @@
             <span>🏆 <span id="s-val">0</span></span>
         </div>
         <div id="char-container">
-            <div id="title-tag"></div>
+            <div id="title-tag">접속 대기 중</div>
             <div id="character"></div>
         </div>
-        <div id="msg-box" style="margin-top:auto; padding:12px; font-size:12px; text-align:center; background:rgba(0,0,0,0.05);">접속 중...</div>
+        <div id="msg-box" style="margin-top:auto; padding:12px; font-size:12px; text-align:center; background:rgba(0,0,0,0.05);">...</div>
     </div>
     <div class="controls">
         <button id="main-btn" class="btn btn-feed" onclick="handleMainAction()">FEED</button>
@@ -63,30 +89,26 @@
 </div>
 
 <script>
-    // --- 1. Firebase 초기화 (제공해주신 값 적용) ---
+    // --- Firebase 설정 (입력하신 정보 반영) ---
     const firebaseConfig = {
-        apiKey: "AIzaSyBCuJM2V5d4f803lSRG-Lx1hxVnqNBnHTw",
-        authDomain: "dujjoncu-3094e.firebaseapp.com",
-        projectId: "dujjoncu-3094e",
-        storageBucket: "dujjoncu-3094e.firebasestorage.app",
-        messagingSenderId: "874617692321",
-        appId: "1:874617692321:web:e43282f588e96bbb8210e0",
-        measurementId: "G-V29R48WX2H"
+      apiKey: "AIzaSyBCuJM2V5d4f803lSRG-Lx1hxVnqNBnHTw",
+      authDomain: "dujjoncu-3094e.firebaseapp.com",
+      projectId: "dujjoncu-3094e",
+      storageBucket: "dujjoncu-3094e.firebasestorage.app",
+      messagingSenderId: "874617692321",
+      appId: "1:874617692321:web:e43282f588e96bbb8210e0",
+      measurementId: "G-V29R48WX2H"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // --- 2. 게임 변수 및 밸런스 ---
-    let currentUserId = "", lv = 1, xp = 0, nextXp = 500;
-    let hunger = 100, score = 0, userTitle = "입문 집사";
-    let isRunaway = false, canMiniGame = true, hits = 0;
-    let xpMultiplier = 1.0; 
+    let currentUserId = "", lv = 1, xp = 0, nextXp = 500, hunger = 100, score = 0, userTitle = "입문 집사";
+    let isRunaway = false, canMiniGame = true, hits = 0, xpMultiplier = 1.0;
 
-    // --- 3. 로그인 및 데이터 로드 ---
     async function login() {
         const id = document.getElementById('user-id-input').value.trim();
-        if(!id) return alert("ID 또는 지갑 주소를 입력해주세요!");
+        if(!id) return alert("ID를 입력하세요!");
         currentUserId = id;
         document.getElementById('login-overlay').style.display = 'none';
         
@@ -100,17 +122,14 @@
             await db.collection("users").doc(id).set({ lv:1, xp:0, nextXp:500, score:0, title:"입문 집사", hunger:100 });
         }
         updateUI();
-        setInterval(gameLoop, 2000); // 2초마다 자동 업데이트 및 저장
+        setInterval(gameLoop, 2000);
     }
 
-    // --- 4. 메인 루프 (중급 난이도) ---
     function gameLoop() {
         if(isRunaway) return;
-        hunger -= 1.5; 
-        gainXp(2); // 자동 생존 경험치 소폭 상향
-        
+        hunger -= 1.5;
+        gainXp(2);
         if(hunger < 15 && Math.random() < 0.1) triggerRunaway();
-        if(hunger <= 0) { hunger = 0; document.getElementById('msg-box').innerText = "배고파서 기절했어요! 밥을 주세요."; }
         updateUI();
         syncData();
     }
@@ -120,24 +139,22 @@
         while(xp >= nextXp) {
             lv++;
             xp -= nextXp;
-            // 2개월 정성 설계: 레벨업 시마다 요구량 1.25배 + 가산
-            nextXp = Math.floor(nextXp * 1.25) + 600; 
+            nextXp = Math.floor(nextXp * 1.25) + 600;
             document.getElementById('msg-box').innerText = `🎊 LEVEL UP! LV.${lv} 🎊`;
         }
     }
 
-    // --- 5. 액션 로직 ---
     function handleMainAction() {
         if(isRunaway) {
             hits++;
             if(hits >= 15) {
                 isRunaway = false; hits = 0; hunger = 50;
-                document.getElementById('character').style.display="block";
+                document.getElementById('character').style.opacity = "1";
                 document.getElementById('main-btn').innerText = "FEED";
             }
         } else {
             hunger = Math.min(100, hunger + 18);
-            score += 15; gainXp(25); // 밥을 직접 주면 더 빨리 성장
+            score += 15; gainXp(25);
             if(canMiniGame && Math.random() < 0.05) startMiniGame();
         }
         updateUI();
@@ -152,7 +169,6 @@
         if(hits >= 30) {
             userTitle = "🔥반죽 파괴자🔥"; score += 1500; gainXp(400);
             canMiniGame = false; document.getElementById('minigame-layer').style.display = 'none';
-            alert("전설의 칭호 [반죽 파괴자] 획득!");
         }
     }
 
@@ -162,36 +178,24 @@
         document.getElementById('s-val').innerText = score;
         document.getElementById('title-tag').innerText = `[${userTitle}]`;
         document.getElementById('xp-fill').style.width = (xp/nextXp*100) + "%";
-        
-        const bar = document.getElementById('stats-bar');
-        hunger > 70 ? bar.classList.add('shiny-bar') : bar.classList.remove('shiny-bar');
     }
 
     async function syncData() {
-        if(currentUserId) {
-            await db.collection("users").doc(currentUserId).update({ 
-                lv, xp, nextXp, score, title: userTitle, hunger 
-            }).catch(() => {}); // 가끔 발생하는 전송 오류 방지
-        }
+        if(currentUserId) db.collection("users").doc(currentUserId).update({ lv, xp, nextXp, score, title: userTitle, hunger });
     }
 
     async function showRank() {
-        try {
-            const snap = await db.collection("users").orderBy("score", "desc").limit(5).get();
-            let rt = "[ 🏆 DUJJONCU TOP 5 ]\n\n";
-            snap.forEach((doc, idx) => {
-                const d = doc.data();
-                rt += `${idx+1}위: LV.${d.lv} | ${doc.id.slice(0,6)}.. | ${d.score}점\n`;
-            });
-            alert(rt);
-        } catch(e) { alert("랭킹을 불러오려면 점수 기록이 필요합니다!"); }
+        const snap = await db.collection("users").orderBy("score", "desc").limit(5).get();
+        let rt = "[ 🏆 TOP 5 ]\n";
+        snap.forEach((doc, idx) => { rt += `${idx+1}위. LV.${doc.data().lv} | ${doc.id.slice(0,6)}.. | ${doc.data().score}점\n`; });
+        alert(rt);
     }
 
     function triggerRunaway() {
         isRunaway = true; hits = 0;
-        document.getElementById('character').style.display = "none";
+        document.getElementById('character').style.opacity = "0";
         document.getElementById('main-btn').innerText = "SEARCH";
-        alert("🚨 두쫀쿠가 가출했습니다! 전단지(SEARCH 버튼)를 연타하세요!");
+        alert("🚨 두쫀쿠 가출! SEARCH 연타!");
     }
 </script>
 </body>
