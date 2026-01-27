@@ -1,4 +1,4 @@
-// 1. Firebase 설정 (본인 키 유지)
+// 1. Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyBCuJM2V5d4f803lSRG-Lx1hxVnqNBnHTw",
   authDomain: "dujjoncu-3094e.firebaseapp.com",
@@ -10,10 +10,7 @@ const firebaseConfig = {
   measurementId: "G-GE1K18P88X"
 };
 
-// 중복 초기화 방지 및 DB 연결
-if (!firebase.apps.length) { 
-    firebase.initializeApp(firebaseConfig); 
-}
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const db = firebase.database();
 
 // --- [전역 변수] ---
@@ -71,17 +68,18 @@ async function handleAuth() {
         }
     } catch (e) {
         console.error("로그인 에러:", e);
-        alert("서버 연결 실패! Firebase 설정을 확인하세요.");
+        alert("서버 연결 실패!");
     }
 }
 
+// --- [로그인 성공 시 루프] ---
 function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     createMarqueeDOM();
     watchRanking();
     
-    // 메인 루프 (1초마다 실행)
+    // 1초마다 상태 체크
     setInterval(() => {
         if (!userData) return;
 
@@ -89,21 +87,13 @@ function loginSuccess() {
         if (userData.isAdventuring) {
             if (Date.now() >= userData.adventureEndTime) {
                 userData.isAdventuring = false;
-                const reward = Math.floor(Math.random() * 51) + 30; // 30~80개
+                const reward = Math.floor(Math.random() * 51) + 30; 
                 userData.shards += reward;
                 alert(`🏹 탐험 완료! 조각 ${reward}개를 획득했습니다!`);
                 saveData();
             }
         }
-        // updateUI 함수 내부 맨 아래 추가
-const img = document.getElementById('character-img');
-let equipCount = Object.values(userData.inventory || {}).filter(v => v !== null).length;
-
-if (equipCount === 4) {
-    img.classList.add('gold-aura'); // 4개 다 모으면 황금 오라!
-} else {
-    img.classList.remove('gold-aura');
-}
+        updateUI();
     }, 1000);
 }
 
@@ -111,7 +101,6 @@ if (equipCount === 4) {
 function handleTap() {
     if (!userData) return;
 
-    // 1. 상태 체크 (탐험 중/배고픔)
     if (userData.isAdventuring) {
         showBubble("탐험 중에는 바빠요! 🏹");
         return;
@@ -121,12 +110,10 @@ function handleTap() {
         return;
     }
 
-    // 2. 연타 방지
     const now = Date.now();
     if (now - lastClick < 80) return;
     lastClick = now;
 
-    // 3. 수치 감소 및 증가
     userData.hg = Math.max(0, userData.hg - (1.2 + userData.lv * 0.03));
     
     let power = 1.0;
@@ -149,7 +136,6 @@ function handleTap() {
 
     userData.xp += finalXP;
 
-    // 4. 애니메이션
     const img = document.getElementById('character-img');
     img.style.transform = "scale(0.85) translateY(5px)";
     setTimeout(() => img.style.transform = "scale(1)", 50);
@@ -175,12 +161,18 @@ function updateUI() {
         document.getElementById('hg-label').innerText = `${Math.floor(userData.hg)} / 100 HG`;
         document.getElementById('food-count-display').innerText = `🍪 남은 먹이: ${userData.foodCount}/10`;
 
+        // 아우라 효과 업데이트
+        const img = document.getElementById('character-img');
+        let equipCount = Object.values(userData.inventory || {}).filter(v => v !== null).length;
+        if (equipCount === 4) img.classList.add('gold-aura');
+        else img.classList.remove('gold-aura');
+
         const marquee = document.getElementById('rank-marquee');
         if (marquee && globalRankers.length > 0) {
             const top1 = globalRankers[0];
             marquee.innerText = `🏆 1위: ${top1.name}(Lv.${top1.lv}) | 내 랭킹을 높여보세요!`;
         }
-    } catch (e) { console.error("UI 업데이트 에러"); }
+    } catch (e) { console.error("UI 업데이트 에러", e); }
 }
 
 function startAdventure() {
@@ -189,7 +181,7 @@ function startAdventure() {
 
     userData.hg -= 40;
     userData.isAdventuring = true;
-    userData.adventureEndTime = Date.now() + (1000 * 60 * 5); // 5분
+    userData.adventureEndTime = Date.now() + (1000 * 60 * 5); 
     
     closeModal();
     saveData();
@@ -203,9 +195,7 @@ function handleFeed() {
         showBubble("냠냠! 맛있다 🍪");
         updateUI();
         saveData();
-    } else if (userData.foodCount <= 0) {
-        alert("먹이가 부족합니다!");
-    }
+    } else if (userData.foodCount <= 0) alert("먹이가 부족합니다!");
 }
 
 function checkLevelUp() {
@@ -232,7 +222,6 @@ function watchRanking() {
     });
 }
 
-// --- [모달 및 UI 제작] ---
 function openModal() { document.getElementById('game-modal').classList.add('active'); viewMenu(); }
 function closeModal() { document.getElementById('game-modal').classList.remove('active'); }
 
@@ -253,31 +242,24 @@ function viewStorage() {
     for (let key in parts) {
         const item = inv[key];
         const color = item ? GRADES[item.grade].color : "#ccc";
-        const name = item ? GRADES[item.grade].name : "비었음";
         html += `<div style="border:1px solid #ddd; padding:10px; border-radius:10px; text-align:center;">
-            <small>${parts[key]}</small><br><b style="color:${color};">[${name}]</b><br>
-            <button onclick="craftItem('${key}')" style="margin-top:5px; font-size:10px; cursor:pointer;">제작(500💎)</button>
+            <small>${parts[key]}</small><br><b style="color:${color};">[${item?GRADES[item.grade].name:'비었음'}]</b><br>
+            <button onclick="craftItem('${key}')" style="margin-top:5px; font-size:10px;">제작(500💎)</button>
         </div>`;
     }
-    html += `</div><button onclick="viewMenu()" style="width:100%; margin-top:15px; padding:10px; border-radius:10px; border:none; cursor:pointer;">뒤로가기</button>`;
+    html += `</div><button onclick="viewMenu()" style="width:100%; margin-top:15px; padding:10px; border-radius:10px; border:none;">뒤로가기</button>`;
     document.getElementById('modal-tab-content').innerHTML = html;
 }
 
 function viewDungeon() {
-    let btnHtml = '';
-    if (userData.isAdventuring) {
-        const leftSec = Math.ceil((userData.adventureEndTime - Date.now()) / 1000);
-        btnHtml = `<button disabled style="width:100%; padding:15px; background:#95a5a6; color:white; border-radius:10px; border:none;">탐험 중 (${leftSec}초 남음)</button>`;
-    } else {
-        btnHtml = `<button onclick="startAdventure()" style="width:100%; padding:15px; background:#3498db; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">탐험 시작 (40 HG)</button>`;
-    }
-
+    let btnHtml = userData.isAdventuring ? 
+        `<button disabled style="width:100%; padding:15px; background:#95a5a6; color:white; border-radius:10px; border:none;">탐험 중...</button>` :
+        `<button onclick="startAdventure()" style="width:100%; padding:15px; background:#3498db; color:white; border-radius:10px; border:none; font-weight:bold;">탐험 시작 (40 HG)</button>`;
     document.getElementById('modal-tab-content').innerHTML = `
-        <h3 style="margin-top:0;">🏹 심해 오븐 탐험</h3>
-        <p style="font-size:12px; color:#666;">5분 동안 조각을 모으러 떠납니다.<br><b>보상: 조각 30~80개</b></p>
+        <h3>🏹 심해 오븐 탐험</h3>
+        <p style="font-size:12px; color:#666;">5분 후 조각 30~80개를 얻습니다.</p>
         ${btnHtml}
-        <button onclick="viewMenu()" style="width:100%; margin-top:10px; padding:10px; border:none; border-radius:10px; cursor:pointer;">뒤로가기</button>
-    `;
+        <button onclick="viewMenu()" style="width:100%; margin-top:10px; padding:10px; border:none; border-radius:10px;">뒤로가기</button>`;
 }
 
 function craftItem(type) {
@@ -290,7 +272,7 @@ function craftItem(type) {
         if (rand <= cum) { grade = k; break; }
     }
     userData.inventory[type] = { grade, power: GRADES[grade].power };
-    alert(`🔨 제작 완료! [${GRADES[grade].name}] 등급을 획득했습니다!`);
+    alert(`🔨 제작 완료! [${GRADES[grade].name}] 획득!`);
     viewStorage();
     saveData();
 }
