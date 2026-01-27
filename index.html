@@ -2,201 +2,64 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>DUJJONCU ONLINE - 60 Days</title>
-    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js"></script>
-    <style>
-        :root { --lcd: #9dbb94; --gold: #f1c40f; --blue: #3498db; }
-        body { background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; }
-        
-        /* 로그인 레이어 */
-        #login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: var(--gold); }
-        #user-id-input { padding: 12px; width: 250px; border-radius: 8px; border: none; margin-bottom: 15px; text-align: center; }
-
-        /* 게임기 외형 */
-        #game-console { background: #333; padding: 40px; border-radius: 60px; box-shadow: 0 15px 0 #000; width: 360px; border: 4px solid #444; }
-        #screen { background: var(--lcd); width: 100%; height: 420px; border: 8px solid #222; border-radius: 10px; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: inset 4px 4px 10px rgba(0,0,0,0.3); }
-
-        /* 경험치 및 상태바 */
-        #xp-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.1); }
-        #xp-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.3s; }
-        #stats-bar { display: flex; justify-content: space-around; padding: 8px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.05); }
-
-        /* ⭐ 핵심: 캐릭터 구역 디자인 수정 ⭐ */
-        #char-container { position: relative; margin: 60px auto 0; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
-        
-        #character { 
-            width: 160px; 
-            height: 160px; 
-            /* ⚠️ 아래 파일 이름이 깃허브에 올린 이름과 대소문자까지 똑같아야 함! */
-            background: url('cookie.png') no-repeat center/contain !important; 
-            image-rendering: pixelated; 
-            position: relative;
-            z-index: 10;
-        }
-
-        #title-tag { position: absolute; top: -40px; width: 100%; text-align: center; font-size: 14px; font-weight: bold; color: #b33939; }
-
-        /* 미니게임 구역 */
-        #minigame-layer { display: none; position: absolute; inset: 0; background: var(--gold); z-index: 100; flex-direction: column; justify-content: center; align-items: center; }
-        .dough { 
-            width: 150px; 
-            height: 120px; 
-            background: url('dough.png') no-repeat center/contain; /* ⚠️ 반죽 이미지 연결 */
-            background-color: transparent;
-            cursor: pointer; 
-        }
-
-        /* 컨트롤 버튼 */
-        .controls { margin-top: 30px; display: flex; justify-content: center; gap: 20px; }
-        .btn { width: 90px; height: 90px; border-radius: 50%; border: none; cursor: pointer; color: white; font-weight: bold; box-shadow: 0 6px 0 #222; }
-        .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #222; }
-        .btn-feed { background: var(--gold); color: #333; }
-        .btn-rank { background: #7f8c8d; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cookie RPG Master - Dujjoncu</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
+    <div id="rank-container"></div>
 
-<div id="login-overlay">
-    <h2>🍪 DUJJONCU LOGIN</h2>
-    <input type="text" id="user-id-input" placeholder="Solana Wallet or ID">
-    <button class="btn btn-feed" style="width:180px; height:50px; border-radius:10px;" onclick="login()">START</button>
-</div>
-
-<div id="game-console">
-    <div id="screen">
-        <div id="xp-bar"><div id="xp-fill"></div></div>
-        <div id="minigame-layer">
-            <h3>연타해서 반죽하라!</h3>
-            <div class="dough" onclick="hitDough()"></div>
-            <p id="hit-count" style="font-size:20px; font-weight:bold;">0 / 30</p>
+    <div id="login-screen" class="overlay">
+        <div class="login-box">
+            <h2 style="color:#e67e22;">🍪 두쫀쿠 키우기</h2>
+            <input type="text" id="user-id-input" placeholder="아이디 (4자 이상)">
+            <input type="password" id="user-pw-input" placeholder="비밀번호 (4자 이상)">
+            <button onclick="handleAuth()">모험 시작하기</button>
         </div>
-        <div id="stats-bar">
-            <span>🍪 <span id="h-val">100</span></span>
-            <span>LV.<span id="lv-val">1</span></span>
-            <span>🏆 <span id="s-val">0</span></span>
-        </div>
-        <div id="char-container">
-            <div id="title-tag">접속 대기 중</div>
-            <div id="character"></div>
-        </div>
-        <div id="msg-box" style="margin-top:auto; padding:12px; font-size:12px; text-align:center; background:rgba(0,0,0,0.05);">...</div>
     </div>
-    <div class="controls">
-        <button id="main-btn" class="btn btn-feed" onclick="handleMainAction()">FEED</button>
-        <button class="btn btn-rank" onclick="showRank()">RANK</button>
+
+    <div id="game-container" style="display:none;">
+        <div id="screen">
+            <div id="top-ui">
+                <span id="user-title">[밀가루 반죽]</span>
+                <span id="level-display">Lv.1 Loading...</span>
+            </div>
+
+            <div id="character-area">
+                <div id="speech-bubble" style="display:none;"></div>
+                <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
+            </div>
+
+            <div id="bottom-ui">
+                <div class="gauge-container">
+                    <span id="exp-label" class="gauge-label">0 / 0 XP</span>
+                    <div id="exp-bar" class="gauge-fill" style="width: 0%;"></div>
+                </div>
+
+                <div class="gauge-container">
+                    <span id="hg-label" class="gauge-label">100 / 100 HG</span>
+                    <div id="hungry-bar" class="gauge-fill" style="width: 100%;"></div>
+                </div>
+
+                <div id="bonus-display" style="color: #f1c40f; font-size: 11px; text-align: center; font-weight: bold; margin-bottom: 5px; height: 15px;"></div>
+                <div id="food-count-display" style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333;">🍪 남은 먹이: 5/10</div>
+
+                <div class="button-row">
+                    <button onclick="handleFeed()" style="background: #2ecc71; box-shadow: 0 4px 0 #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 10px;">🍪 쿠키 먹이기</button>
+                    <button onclick="openModal()" style="background: #9b59b6; box-shadow: 0 4px 0 #8e44ad; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 10px;">📜 메뉴/가방</button>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
-<script>
-    // --- Firebase 설정 (입력하신 정보 반영) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyBCuJM2V5d4f803lSRG-Lx1hxVnqNBnHTw",
-      authDomain: "dujjoncu-3094e.firebaseapp.com",
-      projectId: "dujjoncu-3094e",
-      storageBucket: "dujjoncu-3094e.firebasestorage.app",
-      messagingSenderId: "874617692321",
-      appId: "1:874617692321:web:e43282f588e96bbb8210e0",
-      measurementId: "G-V29R48WX2H"
-    };
+    <div id="game-modal" class="modal">
+        <div class="modal-content">
+            <div id="modal-tab-content"></div>
+        </div>
+    </div>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    let currentUserId = "", lv = 1, xp = 0, nextXp = 500, hunger = 100, score = 0, userTitle = "입문 집사";
-    let isRunaway = false, canMiniGame = true, hits = 0, xpMultiplier = 1.0;
-
-    async function login() {
-        const id = document.getElementById('user-id-input').value.trim();
-        if(!id) return alert("ID를 입력하세요!");
-        currentUserId = id;
-        document.getElementById('login-overlay').style.display = 'none';
-        
-        const doc = await db.collection("users").doc(id).get();
-        if(doc.exists) {
-            const d = doc.data();
-            lv = d.lv || 1; xp = d.xp || 0; score = d.score || 0;
-            userTitle = d.title || "입문 집사"; hunger = d.hunger || 100;
-            nextXp = d.nextXp || 500;
-        } else {
-            await db.collection("users").doc(id).set({ lv:1, xp:0, nextXp:500, score:0, title:"입문 집사", hunger:100 });
-        }
-        updateUI();
-        setInterval(gameLoop, 2000);
-    }
-
-    function gameLoop() {
-        if(isRunaway) return;
-        hunger -= 1.5;
-        gainXp(2);
-        if(hunger < 15 && Math.random() < 0.1) triggerRunaway();
-        updateUI();
-        syncData();
-    }
-
-    function gainXp(amount) {
-        xp += Math.floor(amount * xpMultiplier);
-        while(xp >= nextXp) {
-            lv++;
-            xp -= nextXp;
-            nextXp = Math.floor(nextXp * 1.25) + 600;
-            document.getElementById('msg-box').innerText = `🎊 LEVEL UP! LV.${lv} 🎊`;
-        }
-    }
-
-    function handleMainAction() {
-        if(isRunaway) {
-            hits++;
-            if(hits >= 15) {
-                isRunaway = false; hits = 0; hunger = 50;
-                document.getElementById('character').style.opacity = "1";
-                document.getElementById('main-btn').innerText = "FEED";
-            }
-        } else {
-            hunger = Math.min(100, hunger + 18);
-            score += 15; gainXp(25);
-            if(canMiniGame && Math.random() < 0.05) startMiniGame();
-        }
-        updateUI();
-    }
-
-    function startMiniGame() {
-        hits = 0; document.getElementById('minigame-layer').style.display = 'flex';
-    }
-
-    function hitDough() {
-        hits++; document.getElementById('hit-count').innerText = `${hits} / 30`;
-        if(hits >= 30) {
-            userTitle = "🔥반죽 파괴자🔥"; score += 1500; gainXp(400);
-            canMiniGame = false; document.getElementById('minigame-layer').style.display = 'none';
-        }
-    }
-
-    function updateUI() {
-        document.getElementById('h-val').innerText = Math.max(0, Math.floor(hunger));
-        document.getElementById('lv-val').innerText = lv;
-        document.getElementById('s-val').innerText = score;
-        document.getElementById('title-tag').innerText = `[${userTitle}]`;
-        document.getElementById('xp-fill').style.width = (xp/nextXp*100) + "%";
-    }
-
-    async function syncData() {
-        if(currentUserId) db.collection("users").doc(currentUserId).update({ lv, xp, nextXp, score, title: userTitle, hunger });
-    }
-
-    async function showRank() {
-        const snap = await db.collection("users").orderBy("score", "desc").limit(5).get();
-        let rt = "[ 🏆 TOP 5 ]\n";
-        snap.forEach((doc, idx) => { rt += `${idx+1}위. LV.${doc.data().lv} | ${doc.id.slice(0,6)}.. | ${doc.data().score}점\n`; });
-        alert(rt);
-    }
-
-    function triggerRunaway() {
-        isRunaway = true; hits = 0;
-        document.getElementById('character').style.opacity = "0";
-        document.getElementById('main-btn').innerText = "SEARCH";
-        alert("🚨 두쫀쿠 가출! SEARCH 연타!");
-    }
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
