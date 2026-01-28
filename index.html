@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cookie RPG Master - Dujjoncu</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.firebaseio.com https://*.firebaseapp.com https://*.googleapis.com https://*.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.firebaseio.com https://*.firebaseapp.com https://*.googleapis.com https://*.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://*;">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,7 +23,7 @@
         <div id="screen">
             <div id="top-ui">
                 <span id="user-title">[밀가루 반죽]</span>
-                <span id="level-display">Lv.1 Loading...</span>
+                <span id="level-display">Lv.1 로딩중...</span>
             </div>
 
             <div id="character-area">
@@ -34,20 +34,21 @@
             <div id="bottom-ui">
                 <div class="gauge-container">
                     <span id="exp-label" class="gauge-label">0 / 0 XP</span>
-                    <div id="exp-bar" class="gauge-fill" style="width: 0%;"></div>
+                    <div id="exp-bar" class="gauge-fill" style="width: 0%; background: #3498db;"></div>
                 </div>
 
                 <div class="gauge-container">
                     <span id="hg-label" class="gauge-label">100 / 100 HG</span>
-                    <div id="hungry-bar" class="gauge-fill" style="width: 100%;"></div>
+                    <div id="hungry-bar" class="gauge-fill" style="width: 100%; background: #2ecc71;"></div>
                 </div>
 
                 <div id="bonus-display" style="color: #f1c40f; font-size: 11px; text-align: center; font-weight: bold; margin-bottom: 5px; height: 15px;"></div>
                 <div id="food-count-display" style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333;">🍪 남은 먹이: 5/10</div>
 
-                <div class="button-row">
-                    <button onclick="handleFeed()" style="background: #2ecc71; box-shadow: 0 4px 0 #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 10px;">🍪 쿠키 먹이기</button>
-                    <button onclick="openModal()" style="background: #9b59b6; box-shadow: 0 4px 0 #8e44ad; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 10px;">📜 메뉴/가방</button>
+                <div class="button-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <button onclick="handleFeed()" style="background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">🍪 먹이기</button>
+                    <button onclick="toggleSleep()" id="sleep-btn" style="background: #34495e; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">💤 잠자기</button>
+                    <button onclick="openModal()" style="background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">📜 가방</button>
                 </div>
             </div>
         </div>
