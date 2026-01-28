@@ -106,8 +106,24 @@ body {
 }
 
 /* 캐릭터 및 특수효과 */
-#character-area { position: relative; height: 310px; display: flex; align-items: center; justify-content: center; }
-#character-img { width: 170px; cursor: pointer; transition: transform 0.1s; z-index: 5; }
+#character-area {
+    position: relative; /* 자식들(전광판, 말풍선)의 기준점 */
+    height: 400px; /* 전광판부터 캐릭터까지 담을 수 있는 충분한 높이 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end; /* 캐릭터를 바닥에 고정 */
+}
+
+#rank-ticker {
+    position: absolute;
+    top: 10px; /* 구석이 아닌 맨 위쪽 */
+}
+
+#speech-bubble {
+    position: absolute;
+    bottom: 200px; /* 캐릭터 키보다 조금 더 높은 위치 */
+}#character-img { width: 170px; cursor: pointer; transition: transform 0.1s; z-index: 5; }
 #character-img:active { transform: scale(0.92); }
 
 .shake { animation: shake 0.15s linear; }
@@ -198,4 +214,56 @@ body {
     border-radius: 12px;
     font-size: 11px;
     box-shadow: 0 4px 15px rgba(153, 69, 255, 0.2);
+}
+/* 캐릭터 영역: 말풍선과 캐릭터를 수직으로 정렬 */
+#character-area {
+    position: relative;
+    height: 380px; /* 말풍선 공간을 위해 높이 확보 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end; /* 캐릭터를 바닥에 붙임 */
+    padding-bottom: 30px;
+}
+
+/* 말풍선: 캐릭터 머리 위에 절대 위치로 고정 */
+#speech-bubble {
+    position: absolute;
+    top: 40px; /* 캐릭터 머리 위 적절한 위치 */
+    left: 50%;
+    transform: translateX(-50%); /* 정확히 정중앙 */
+    background: rgba(255, 255, 255, 0.95);
+    border: 3px solid #9945FF; /* 솔라나 퍼플 테두리 */
+    padding: 12px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap;
+    box-shadow: 0 8px 20px rgba(153, 69, 255, 0.2);
+    z-index: 10;
+    display: none; /* 평소엔 숨김 */
+}
+
+/* 말풍선 꼬리 */
+#speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 12px 10px 0;
+    border-style: solid;
+    border-color: #9945FF transparent transparent;
+}
+
+/* 캐릭터 이미지: 클릭 시 살짝 작아지는 효과 */
+#character-img {
+    width: 180px;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+    z-index: 5;
+}
+#character-img:active {
+    transform: scale(0.95);
 }
