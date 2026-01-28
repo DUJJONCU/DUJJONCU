@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cookie RPG Master - Dujjoncu</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.firebaseio.com https://*.firebaseapp.com https://*.googleapis.com https://*.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://*;">
+    <title>DUJJONCU - Solana Network</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.firebaseio.com https://*.firebaseapp.com https://*.googleapis.com https://*.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https://*; font-src 'self' https://cdn.jsdelivr.net;">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,43 +12,46 @@
 
     <div id="login-screen" class="overlay">
         <div class="login-box">
-            <h2 style="color:#e67e22;">🍪 두쫀쿠 키우기</h2>
-            <input type="text" id="user-id-input" placeholder="아이디 (4자 이상)">
-            <input type="password" id="user-pw-input" placeholder="비밀번호 (4자 이상)">
-            <button onclick="handleAuth()">모험 시작하기</button>
+            <h2 style="margin-bottom: 25px;">🍪 DUJJONCU <br><span style="font-size: 0.7em; color: #14F195; text-shadow: 0 0 10px #14F195;">NETWORK ENTER</span></h2>
+            <div class="input-group">
+                <input type="text" id="user-id-input" placeholder="ACCESS ID (4+)" autocomplete="off">
+                <input type="password" id="user-pw-input" placeholder="SECURE PW (4+)">
+            </div>
+            <button class="solana-btn" onclick="handleAuth()">INITIALIZE ADVENTURE</button>
+            <p style="font-size: 10px; color: #666; margin-top: 20px; letter-spacing: 1px;">CONNECTED TO SOLANA PROTOCOL STYLE</p>
         </div>
     </div>
 
     <div id="game-container" style="display:none;">
         <div id="screen">
             <div id="top-ui">
-                <span id="user-title">[밀가루 반죽]</span>
+                <span id="user-title" style="color: #9945FF;">[밀가루 반죽]</span>
                 <span id="level-display">Lv.1 로딩중...</span>
             </div>
 
             <div id="character-area">
                 <div id="speech-bubble" style="display:none;"></div>
-                <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
+                <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠 캐릭터">
             </div>
 
             <div id="bottom-ui">
                 <div class="gauge-container">
                     <span id="exp-label" class="gauge-label">0 / 0 XP</span>
-                    <div id="exp-bar" class="gauge-fill" style="width: 0%; background: #3498db;"></div>
+                    <div id="exp-bar" class="gauge-fill"></div>
                 </div>
 
                 <div class="gauge-container">
                     <span id="hg-label" class="gauge-label">100 / 100 HG</span>
-                    <div id="hungry-bar" class="gauge-fill" style="width: 100%; background: #2ecc71;"></div>
+                    <div id="hungry-bar" class="gauge-fill"></div>
                 </div>
 
-                <div id="bonus-display" style="color: #f1c40f; font-size: 11px; text-align: center; font-weight: bold; margin-bottom: 5px; height: 15px;"></div>
-                <div id="food-count-display" style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333;">🍪 남은 먹이: 5/10</div>
+                <div id="bonus-display"></div>
+                <div id="food-count-display">🍪 남은 먹이: 5/10</div>
 
-                <div class="button-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                    <button onclick="handleFeed()" style="background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">🍪 먹이기</button>
-                    <button onclick="toggleSleep()" id="sleep-btn" style="background: #34495e; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">💤 잠자기</button>
-                    <button onclick="openModal()" style="background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; padding: 12px 5px; font-weight: bold;">📜 가방</button>
+                <div class="button-row">
+                    <button class="action-btn feed" onclick="handleFeed()">🍪 먹이기</button>
+                    <button class="action-btn sleep" onclick="toggleSleep()" id="sleep-btn">💤 잠자기</button>
+                    <button class="action-btn bag" onclick="openModal()">📜 메뉴</button>
                 </div>
             </div>
         </div>

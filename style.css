@@ -1,11 +1,11 @@
 /* 1. 무료 도트 폰트 갈무리9 불러오기 */
 @import url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/galmuri.css');
 
-/* 기본 레이아웃 및 폰트 적용 */
+/* 기본 레이아웃 및 폰트 */
 body { 
     margin: 0; 
-    font-family: 'Galmuri9', sans-serif; /* 전체 폰트 도트체로 변경 */
-    background: #1a1a1a; 
+    font-family: 'Galmuri9', sans-serif; 
+    background: #0a0a0a; /* 깊은 블랙 */
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -13,129 +13,189 @@ body {
     overflow: hidden; 
 }
 
-.overlay { position: fixed; inset: 0; background: #111; display: flex; align-items: center; justify-content: center; z-index: 2000; }
-.login-box { background: white; padding: 30px; border-radius: 20px; text-align: center; width: 280px; box-shadow: 0 0 30px rgba(230,126,34,0.4); }
-.login-box input { width: 85%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-family: 'Galmuri9'; }
-.login-box button { width: 95%; padding: 12px; background: #e67e22; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; font-family: 'Galmuri9'; }
-
-/* 전광판 */
-#rank-container { position:fixed; top:0; left:0; width:100%; background:#000; height:26px; z-index:1000; border-bottom:1px solid #f1c40f; line-height:26px; overflow:hidden; }
-#rank-marquee { display: inline-block; white-space: nowrap; animation: marquee 20s linear infinite; color: #f1c40f; font-size: 12px; }
-@keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-
-/* 게임 화면 */
-#game-container { margin-top: 26px; }
-#screen { position: relative; width: 360px; height: 620px; background: #fff; border-radius: 25px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 4px solid #333; }
-
-/* 상단 정보 */
-#top-ui { display: flex; justify-content: space-between; padding: 18px 25px; background: #f8f9fa; border-bottom: 2px solid #eee; font-weight: bold; font-size: 14px; }
-
-/* 캐릭터 영역 및 애니메이션 */
-#character-area { 
-    position: relative; 
-    height: 310px; 
+/* --- [솔라나 스타일 로그인 화면] --- */
+.overlay { 
+    position: fixed; 
+    inset: 0; 
+    background: radial-gradient(circle at center, #1a1a2e 0%, #050505 100%); 
     display: flex; 
     align-items: center; 
     justify-content: center; 
+    z-index: 2000; 
 }
 
-#character-img { 
-    width: 170px; 
-    cursor: pointer;
+.login-box { 
+    background: rgba(20, 20, 30, 0.95); 
+    padding: 40px 30px; 
+    border-radius: 24px; 
+    text-align: center; 
+    width: 300px; 
+    border: 2px solid #9945FF; /* 솔라나 퍼플 */
+    box-shadow: 0 0 30px rgba(153, 69, 255, 0.4), inset 0 0 15px rgba(20, 241, 149, 0.1); 
+    color: white;
+}
+
+.login-box h2 {
+    text-shadow: 0 0 10px #9945FF, 0 0 20px #14F195;
+    line-height: 1.4;
+}
+
+.login-box input { 
+    width: 85%; 
+    padding: 14px; 
+    margin: 10px 0; 
+    background: #0f0f1b;
+    border: 1px solid #333; 
+    border-radius: 12px; 
+    color: #14F195;
+    font-family: 'Galmuri9';
+    outline: none;
+    transition: 0.3s;
+}
+
+.login-box input:focus {
+    border-color: #14F195;
+    box-shadow: 0 0 10px rgba(20, 241, 149, 0.3);
+}
+
+/* 쫀득한 솔라나 버튼 (입력감 강화) */
+.login-box button { 
+    width: 95%; 
+    padding: 16px; 
+    background: linear-gradient(135deg, #9945FF 0%, #14F195 100%); 
+    color: white; 
+    border: none; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    margin-top: 15px;
+    font-family: 'Galmuri9';
+    position: relative;
+    top: 0;
+    box-shadow: 0 6px 0 #6a2eb3; /* 버튼 밑면 (입체감) */
+    transition: all 0.1s;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.login-box button:active { 
+    top: 4px; /* 클릭 시 버튼이 아래로 눌림 */
+    box-shadow: 0 2px 0 #6a2eb3; /* 밑면이 줄어듦 */
+}
+
+/* --- [게임 메인 UI] --- */
+#game-container { margin-top: 26px; }
+#screen { 
     position: relative; 
-    z-index: 5;
-    transition: transform 0.1s; /* 클릭 시 스케일 변화 부드럽게 */
+    width: 360px; 
+    height: 620px; 
+    background: #fff; 
+    border-radius: 25px; 
+    overflow: hidden; 
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+    border: 4px solid #333; 
 }
 
-/* 타격감: 쉐이크 효과 */
-.shake {
-    animation: shake 0.15s linear;
+#top-ui { 
+    display: flex; 
+    justify-content: space-between; 
+    padding: 18px 25px; 
+    background: #f8f9fa; 
+    border-bottom: 2px solid #eee; 
+    font-weight: bold; 
+    font-size: 13px; 
 }
 
+/* 캐릭터 및 특수효과 */
+#character-area { position: relative; height: 310px; display: flex; align-items: center; justify-content: center; }
+#character-img { width: 170px; cursor: pointer; transition: transform 0.1s; z-index: 5; }
+#character-img:active { transform: scale(0.92); }
+
+.shake { animation: shake 0.15s linear; }
 @keyframes shake {
-    0% { transform: translate(2px, 2px) rotate(0deg); }
-    25% { transform: translate(-2px, -2px) rotate(-1deg); }
-    50% { transform: translate(-3px, 0px) rotate(1deg); }
-    75% { transform: translate(3px, 2px) rotate(0deg); }
-    100% { transform: translate(0, 0) rotate(0deg); }
+    0% { transform: translate(2px, 2px); }
+    50% { transform: translate(-2px, -2px); }
+    100% { transform: translate(0, 0); }
 }
 
-/* 잠자기 모드: 어둡게 */
-.sleeping {
-    filter: brightness(0.4) grayscale(0.6) !important;
-    transition: 0.8s;
-}
-
-/* Zzz 입자 효과 */
+/* 잠자기 & Zzz */
+.sleeping { filter: brightness(0.4) grayscale(0.6) !important; transition: 0.8s; }
 .zzz-particle {
-    position: absolute;
-    color: #fff;
-    font-weight: bold;
-    font-size: 24px;
-    pointer-events: none;
-    animation: zzz-fly 2s linear forwards;
-    z-index: 100;
-    text-shadow: 2px 2px 0px #000;
+    position: absolute; color: #fff; font-size: 24px; pointer-events: none;
+    animation: zzz-fly 2s linear forwards; z-index: 100; text-shadow: 2px 2px 0px #000;
 }
-
 @keyframes zzz-fly {
     0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
     20% { opacity: 1; }
-    100% { transform: translate(40px, -120px) scale(1.2); opacity: 0; }
+    100% { transform: translate(30px, -100px) scale(1.2); opacity: 0; }
 }
 
-/* 말풍선 */
-#speech-bubble { 
-    position: absolute; 
-    top: 35px; 
-    background: white;
-    padding: 8px 15px;
-    border-radius: 15px;
-    border: 2px solid #333;
-    font-size: 12px;
-    z-index: 100; 
-    pointer-events: none;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-}
-
-/* 하단 게이지 UI */
+/* 게이지 바 */
 #bottom-ui { padding: 0 25px; }
-.gauge-container { height: 18px; background: #222; border-radius: 10px; margin-bottom: 25px; position: relative; overflow: visible; border: 2px solid #444; }
-.gauge-fill { height: 100%; width: 0%; border-radius: 8px; transition: width 0.3s cubic-bezier(0.1, 0.7, 0.1, 1); }
-#exp-bar { background: linear-gradient(90deg, #3498db, #2980b9); }
-#hungry-bar { background: linear-gradient(90deg, #e67e22, #d35400); }
-
+.gauge-container { height: 18px; background: #222; border-radius: 10px; margin-bottom: 25px; position: relative; border: 2px solid #444; }
+.gauge-fill { height: 100%; border-radius: 8px; transition: width 0.3s cubic-bezier(0.1, 0.7, 0.1, 1); }
 .gauge-label { position: absolute; width: 100%; top: -20px; right: 0; text-align: right; font-size: 11px; color: #666; font-weight: bold; }
 
-/* 버튼 디자인 보강 */
+/* 게임 하단 버튼들 */
 .button-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
 .button-row button { 
-    padding: 12px 5px; 
-    border: none; 
-    border-radius: 12px; 
-    color: white; 
-    cursor: pointer; 
-    font-weight: bold; 
-    font-size: 13px; 
-    transition: 0.1s; 
-    font-family: 'Galmuri9';
-    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    padding: 12px 5px; border: none; border-radius: 12px; color: white; cursor: pointer; 
+    font-weight: bold; font-size: 12px; font-family: 'Galmuri9';
+    position: relative; top: 0; box-shadow: 0 4px 0 rgba(0,0,0,0.3); transition: 0.1s;
 }
-.button-row button:active { transform: translateY(3px); box-shadow: none; }
+.button-row button:active { top: 3px; box-shadow: none; }
 
 /* 모달 */
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; z-index: 3000; align-items: center; justify-content: center; }
-.modal.active { display: flex; }
-.modal-content { background: white; width: 310px; padding: 25px; border-radius: 20px; max-height: 80vh; overflow-y: auto; font-family: 'Galmuri9'; }
+.modal-content { background: white; width: 310px; padding: 25px; border-radius: 20px; font-family: 'Galmuri9'; }
 
-/* 특수 효과 */
-.danger-blink { animation: blink 0.6s infinite !important; background: #e74c3c !important; }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-/* 황금빛 오라 */
-@keyframes gold-glow {
-    0% { filter: drop-shadow(0 0 5px gold); }
-    50% { filter: drop-shadow(0 0 20px yellow) brightness(1.2); }
-    100% { filter: drop-shadow(0 0 5px gold); }
+/* 버튼 쫀득한 타격감 공통 */
+.solana-btn, .action-btn {
+    position: relative;
+    top: 0;
+    transition: all 0.1s;
+    cursor: pointer;
 }
-.gold-aura { animation: gold-glow 2s infinite ease-in-out; }
+
+.solana-btn:active, .action-btn:active {
+    top: 4px; /* 아래로 쑥! */
+    filter: brightness(1.2);
+}
+/* 하단 액션 버튼별 개별 색상 및 입체감 강화 */
+
+/* 1. 먹이기 버튼 (Green) */
+.action-btn.feed {
+    background: #2ecc71;
+    box-shadow: 0 5px 0 #27ae60;
+}
+
+/* 2. 잠자기 버튼 (Dark Blue) */
+.action-btn.sleep {
+    background: #34495e;
+    box-shadow: 0 5px 0 #2c3e50;
+}
+
+/* 3. 메뉴/가방 버튼 (Purple) */
+.action-btn.bag {
+    background: #9b59b6;
+    box-shadow: 0 5px 0 #8e44ad;
+}
+
+/* 공통 클릭 효과 (이미 있는 코드를 덮어씌워 더 쫀득하게) */
+.action-btn:active {
+    top: 5px !important; /* 아래로 확실히 눌림 */
+    box-shadow: 0 0px 0 transparent !important; /* 그림자 소멸 */
+}
+
+/* 게이지 바 내부 색상 보정 (솔라나 느낌 가미) */
+#exp-bar { background: linear-gradient(90deg, #9945FF, #3498db); }
+#hungry-bar { background: linear-gradient(90deg, #14F195, #2ecc71); }
+
+/* 말풍선 디자인 보정 */
+#speech-bubble {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #9945FF;
+    color: #333;
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-size: 11px;
+    box-shadow: 0 4px 15px rgba(153, 69, 255, 0.2);
+}

@@ -1,4 +1,4 @@
-// 1. Firebase 설정
+// 1. Firebase 설정 (변경하지 마세요)
 const firebaseConfig = {
   apiKey: "AIzaSyBCuJM2V5d4f803lSRG-Lx1hxVnqNBnHTw",
   authDomain: "dujjoncu-3094e.firebaseapp.com",
@@ -10,16 +10,24 @@ const firebaseConfig = {
   measurementId: "G-GE1K18P88X"
 };
 
-if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-const db = firebase.database();
+// 초기화 에러 방지 로직
+let db;
+try {
+    if (!firebase.apps.length) { 
+        firebase.initializeApp(firebaseConfig); 
+    }
+    db = firebase.database();
+} catch (e) {
+    console.error("Firebase 로딩 실패. HTML 하단에 Firebase SDK가 있는지 확인하세요.");
+}
 
 // --- [전역 변수] ---
 let userData = null;
 let lastClick = 0;
 let bubbleTimer = null;
 let globalRankers = [];
-let isSleeping = false; // 잠자기 상태
-let lastInteractionTime = Date.now(); // 방치 시간 체크용
+let isSleeping = false;
+let lastInteractionTime = Date.now();
 
 const GRADES = {
     Common: { name: "커먼", color: "#bdc3c7", power: 1.2, chance: 0.739 },
@@ -35,11 +43,12 @@ const TITLES = [
     { lv: 500, name: "황금 요리사" }
 ];
 
-// --- [대사 카테고리 (500개 확장을 위한 구조)] ---
+// --- [대사 확장 시스템: 500개까지 배열 안에 채우시면 됩니다] ---
 const DIALOGUES = {
     mzMeme: [
         "럭키비키잖아! 🍀", "주인님 폼 미쳤다..ㄷㄷ", "너 T야? 쿠키 줘!", "갓생 가보자고!", 
         "오히려 좋아!", "이거 완전 실화냐?", "꺾이지 않는 마음!", "분위기 무엇?"
+        // 여기에 계속 추가 가능 (500개까지)
     ],
     worker: [
         "퇴근하고 싶다..", "월요병엔 쿠키가 약..", "자본주의의 맛..", "멍 때리기 장인",
@@ -55,13 +64,24 @@ const DIALOGUES = {
 
 // --- [로그인 시스템] ---
 async function handleAuth() {
+    console.log("로그인 시도..."); // 버튼 작동 확인용 콘솔
     const idInput = document.getElementById('user-id-input');
     const pwInput = document.getElementById('user-pw-input');
+    
     if (!idInput || !pwInput) return;
 
     const id = idInput.value.trim();
     const pw = pwInput.value.trim();
-    if (id.length < 4 || pw.length < 4) return alert("ID/PW 4자 이상 입력하세요!");
+    
+    if (id.length < 4 || pw.length < 4) {
+        alert("ID/PW 4자 이상 입력하세요!");
+        return;
+    }
+
+    if (!db) {
+        alert("데이터베이스 연결 대기 중입니다. 잠시 후 다시 시도하세요.");
+        return;
+    }
 
     try {
         const snapshot = await db.ref(`users/${id}`).once('value');
@@ -70,8 +90,9 @@ async function handleAuth() {
         if (saved) {
             if (saved.password === pw) { 
                 userData = saved; 
+                // 기존 데이터에 새 필드(기분, 인벤토리)가 없을 경우 보정
                 if(!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
-                if(userData.mood === undefined) userData.mood = 50; // 기분 수치 초기화
+                if(userData.mood === undefined) userData.mood = 50; 
                 loginSuccess(); 
             } else { alert("비밀번호가 틀렸습니다."); }
         } else {
@@ -85,27 +106,34 @@ async function handleAuth() {
                 loginSuccess();
             }
         }
-    } catch (e) { alert("서버 연결 실패!"); }
+    } catch (e) { 
+        console.error(e);
+        alert("서버 연결 실패! 인터넷 상태를 확인하세요."); 
+    }
 }
 
-// --- [게임 메인 루프] ---
+// --- [로그인 이후 메인 로직] ---
 function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
+    
+    // 전광판 생성 (없을 경우만)
     createMarqueeDOM();
     watchRanking();
     
+    // 1초 루프
     setInterval(() => {
         if (!userData) return;
 
-        // 1. 한국 시간 정기 보상 (4, 10, 16, 22시)
-        const kst = new Date(new Date().getTime() + (9 * 3600000));
-        const hours = kst.getUTCHours();
+        // 1. 한국 시간 정기 보상
+        const now = new Date();
+        const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+        const hours = kst.getHours();
         const rewardHours = [4, 10, 16, 22];
         if (rewardHours.includes(hours) && localStorage.getItem('lastReward') != hours) {
             userData.foodCount = Math.min(10, userData.foodCount + 3);
             localStorage.setItem('lastReward', hours);
-            showBubble("🎁 정기 선물! 쿠키 +3");
+            showBubble("🎁 정기 보너스! 쿠키 +3");
             saveData();
         }
 
@@ -118,9 +146,15 @@ function loginSuccess() {
             userData.mood = Math.max(0, userData.mood - 0.05);
         }
 
-        // 3. 10초 방치 대사
-        if (Date.now() - lastInteractionTime > 10000) {
-            let pool = isSleeping ? DIALOGUES.sleeping : (userData.hg < 30 ? DIALOGUES.hungry : (hours >= 22 || hours < 6 ? DIALOGUES.healing : DIALOGUES.mzMeme));
+        // 3. 10초 방치 대사 처리 (배고픔 -> 잠자기 -> 기분 순서)
+        const idleTime = Date.now() - lastInteractionTime;
+        if (idleTime > 10000) {
+            let pool;
+            if (isSleeping) pool = DIALOGUES.sleeping;
+            else if (userData.hg < 30) pool = DIALOGUES.hungry;
+            else if (hours >= 22 || hours < 6) pool = DIALOGUES.healing;
+            else pool = DIALOGUES.mzMeme;
+            
             showBubble(pool[Math.floor(Math.random() * pool.length)]);
             lastInteractionTime = Date.now();
         }
@@ -138,7 +172,7 @@ function loginSuccess() {
     }, 1000);
 }
 
-// --- [캐릭터 클릭 & 타격감] ---
+// --- [캐릭터 클릭 액션] ---
 function handleTap() {
     if (!userData || isSleeping) return;
     if (userData.isAdventuring) return showBubble("탐험 중에는 바빠요! 🏹");
@@ -147,23 +181,22 @@ function handleTap() {
     const now = Date.now();
     if (now - lastClick < 80) return;
     lastClick = now;
-    lastInteractionTime = now; // 방치 시간 리셋
+    lastInteractionTime = now;
 
-    // 기분 보너스 (기분 수치에 따라 경험치 추가 상승)
+    // 기분 보너스 적용
     const moodBonus = 1 + (userData.mood / 100);
     userData.hg = Math.max(0, userData.hg - (1.2 + userData.lv * 0.03));
-    userData.mood = Math.min(100, userData.mood + 0.1); // 클릭 시 기분 살짝 업
+    userData.mood = Math.min(100, userData.mood + 0.1); 
 
     let power = 1.0;
     for (let k in userData.inventory) { if (userData.inventory[k]) power *= userData.inventory[k].power; }
     
-    let finalXP = 10 * power * moodBonus;
-    userData.xp += finalXP;
+    userData.xp += 10 * power * moodBonus;
 
-    // 타격감: 쉐이크 효과 애니메이션
+    // 애니메이션 트리거
     const img = document.getElementById('character-img');
     img.classList.remove('shake');
-    void img.offsetWidth; // 리플로우 강제
+    void img.offsetWidth; 
     img.classList.add('shake');
 
     checkLevelUp();
@@ -171,26 +204,27 @@ function handleTap() {
     saveData();
 }
 
-// --- [잠자기 기능] ---
+// --- [UI 및 보조 기능] ---
 function toggleSleep() {
     isSleeping = !isSleeping;
     const img = document.getElementById('character-img');
     const btn = document.getElementById('sleep-btn');
     if (isSleeping) {
         img.classList.add('sleeping');
-        btn.innerText = "☀️ 깨우기";
+        if(btn) btn.innerText = "☀️ 깨우기";
         showBubble("Zzz... 기운 충전 중");
     } else {
         img.classList.remove('sleeping');
-        btn.innerText = "💤 잠자기";
+        if(btn) btn.innerText = "💤 잠자기";
         showBubble("잘 잤다! 가보자고!");
     }
 }
 
 function createZzz() {
+    const char = document.getElementById('character-img');
+    if(!char) return;
     const z = document.createElement('div');
     z.className = 'zzz-particle'; z.innerText = 'Z';
-    const char = document.getElementById('character-img');
     const rect = char.getBoundingClientRect();
     z.style.left = (rect.right - 50) + 'px';
     z.style.top = (rect.top + 30) + 'px';
@@ -198,12 +232,12 @@ function createZzz() {
     setTimeout(() => z.remove(), 2000);
 }
 
-// --- [기타 시스템 함수 (기존 로직 유지)] ---
 function handleFeed() {
+    if (!userData) return;
     if (userData.foodCount > 0 && userData.hg < 100) {
         userData.foodCount--;
         userData.hg = Math.min(100, userData.hg + 30);
-        userData.mood = Math.min(100, userData.mood + 10); // 먹이면 기분 상승
+        userData.mood = Math.min(100, userData.mood + 10);
         showBubble("냠냠! 맛있다 🍪");
         saveData();
     } else if (userData.foodCount <= 0) alert("먹이가 부족합니다!");
@@ -212,21 +246,29 @@ function handleFeed() {
 function updateUI() {
     if (!userData) return;
     const titleData = TITLES.filter(t => userData.lv >= t.lv).slice(-1)[0];
-    document.getElementById('user-title').innerText = `[${titleData.name}]`;
-    document.getElementById('level-display').innerText = `Lv.${userData.lv} ${userData.id}`;
+    
+    const ut = document.getElementById('user-title');
+    const ld = document.getElementById('level-display');
+    const eb = document.getElementById('exp-bar');
+    const el = document.getElementById('exp-label');
+    const hb = document.getElementById('hungry-bar');
+    const hl = document.getElementById('hg-label');
+    const fcd = document.getElementById('food-count-display');
+
+    if(ut) ut.innerText = `[${titleData.name}]`;
+    if(ld) ld.innerText = `Lv.${userData.lv} ${userData.id}`;
 
     const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
-    document.getElementById('exp-bar').style.width = Math.min(100, (userData.xp/nextXP)*100) + "%";
-    document.getElementById('exp-label').innerText = `${Math.floor(userData.xp).toLocaleString()} / ${nextXP.toLocaleString()} XP`;
+    if(eb) eb.style.width = Math.min(100, (userData.xp/nextXP)*100) + "%";
+    if(el) el.innerText = `${Math.floor(userData.xp).toLocaleString()} / ${nextXP.toLocaleString()} XP`;
 
-    document.getElementById('hungry-bar').style.width = userData.hg + "%";
-    document.getElementById('hg-label').innerText = `${Math.floor(userData.hg)} / 100 HG`;
-    document.getElementById('food-count-display').innerText = `🍪 남은 먹이: ${userData.foodCount}/10`;
+    if(hb) hb.style.width = userData.hg + "%";
+    if(hl) hl.innerText = `${Math.floor(userData.hg)} / 100 HG`;
+    if(fcd) fcd.innerText = `🍪 남은 먹이: ${userData.foodCount}/10`;
 
-    // 랭킹 업데이트
     const marquee = document.getElementById('rank-marquee');
     if (marquee && globalRankers.length > 0) {
-        marquee.innerText = `🏆 1위: ${globalRankers[0].name}(Lv.${globalRankers[0].lv}) | "중요한 건 꺾여도 그냥 하는 마음!"`;
+        marquee.innerText = `🏆 1위: ${globalRankers[0].name}(Lv.${globalRankers[0].lv}) | 기분 좋게 클릭하세요!`;
     }
 }
 
@@ -241,12 +283,13 @@ function checkLevelUp() {
 }
 
 function saveData() {
-    if (!userData) return;
+    if (!userData || !db) return;
     db.ref(`users/${userData.id}`).set(userData);
     db.ref(`rankings/${userData.id}`).set({ name: userData.id, lv: userData.lv });
 }
 
 function watchRanking() {
+    if(!db) return;
     db.ref('rankings').orderByChild('lv').limitToLast(10).on('value', (s) => {
         const d = s.val(); const list = [];
         if(d) for(let k in d) list.push(d[k]);
@@ -261,9 +304,9 @@ function viewMenu() {
     document.getElementById('modal-tab-content').innerHTML = `
         <h2 style="text-align:center;">📜 메뉴</h2>
         <div style="display:grid; gap:10px;">
-            <button onclick="viewStorage()" style="padding:15px; background:#e67e22; color:white; border-radius:10px; border:none; font-weight:bold;">📦 가방 및 제작</button>
-            <button onclick="viewDungeon()" style="padding:15px; background:#3498db; color:white; border-radius:10px; border:none; font-weight:bold;">🏹 던전 탐험</button>
-            <button onclick="closeModal()" style="padding:10px; background:#7f8c8d; color:white; border-radius:10px; border:none;">닫기</button>
+            <button onclick="viewStorage()" style="padding:15px; background:#e67e22; color:white; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">📦 가방 및 제작</button>
+            <button onclick="viewDungeon()" style="padding:15px; background:#3498db; color:white; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">🏹 던전 탐험</button>
+            <button onclick="closeModal()" style="padding:10px; background:#7f8c8d; color:white; border-radius:10px; border:none; cursor:pointer;">닫기</button>
         </div>`;
 }
 
@@ -318,7 +361,7 @@ function showBubble(msg) {
     if(!b) return;
     b.innerText = msg; b.style.display = 'block';
     if(bubbleTimer) clearTimeout(bubbleTimer);
-    bubbleTimer = setTimeout(() => b.style.display = 'none', 2000);
+    bubbleTimer = setTimeout(() => b.style.display = 'none', 2500);
 }
 
 function createMarqueeDOM() {
