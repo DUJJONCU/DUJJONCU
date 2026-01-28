@@ -3,25 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DUJJONCU - Solana Network</title>
-    
-    
-">
-
+    <title>DUJJONCU - Solana Style</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="rank-container"></div>
-
     <div id="login-screen" class="overlay">
         <div class="login-box">
-            <h2 style="margin-bottom: 25px;">🍪 DUJJONCU <br><span style="font-size: 0.7em; color: #14F195; text-shadow: 0 0 10px #14F195;">NETWORK ENTER</span></h2>
+            <h2>🍪 DUJJONCU <br><span style="font-size: 0.7em; color: #14F195;">NETWORK ENTER</span></h2>
             <div class="input-group">
                 <input type="text" id="user-id-input" placeholder="ACCESS ID (4+)" autocomplete="off">
                 <input type="password" id="user-pw-input" placeholder="SECURE PW (4+)">
             </div>
             <button class="solana-btn" onclick="handleAuth()">INITIALIZE ADVENTURE</button>
-            <p style="font-size: 10px; color: #666; margin-top: 20px; letter-spacing: 1px;">CONNECTED TO SOLANA PROTOCOL STYLE</p>
         </div>
     </div>
 
@@ -29,36 +22,26 @@
         <div id="screen">
             <div id="top-ui">
                 <span id="user-title" style="color: #9945FF;">[밀가루 반죽]</span>
-                <span id="level-display">Lv.1 로딩중...</span>
             </div>
 
             <div id="character-area">
-    <div id="rank-ticker">
-        <div class="ticker-text" id="ranking-list">실시간 랭킹 로딩 중...</div>
-    </div>
-
-    <div id="speech-bubble"></div>
-
-    <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
-</div>
-    <div id="speech-bubble"></div>
-    <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
-</div>
+                <div id="rank-ticker">
+                    <div class="ticker-text" id="ranking-list">실시간 랭킹 로딩 중...</div>
+                </div>
+                <div id="speech-bubble"></div>
+                <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
+            </div>
 
             <div id="bottom-ui">
                 <div class="gauge-container">
                     <span id="exp-label" class="gauge-label">0 / 0 XP</span>
                     <div id="exp-bar" class="gauge-fill"></div>
                 </div>
-
                 <div class="gauge-container">
                     <span id="hg-label" class="gauge-label">100 / 100 HG</span>
                     <div id="hungry-bar" class="gauge-fill"></div>
                 </div>
-
-                <div id="bonus-display"></div>
-                <div id="food-count-display">🍪 남은 먹이: 5/10</div>
-
+                <div id="food-count-display" style="color:white; margin-bottom:10px;">🍪 남은 먹이: 5/10</div>
                 <div class="button-row">
                     <button class="action-btn feed" onclick="handleFeed()">🍪 먹이기</button>
                     <button class="action-btn sleep" onclick="toggleSleep()" id="sleep-btn">💤 잠자기</button>

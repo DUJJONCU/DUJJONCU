@@ -5,7 +5,7 @@
 body { 
     margin: 0; 
     font-family: 'Galmuri9', sans-serif; 
-    background: #0a0a0a; /* 깊은 블랙 */
+    background: #0a0a0a; 
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -13,7 +13,7 @@ body {
     overflow: hidden; 
 }
 
-/* --- [솔라나 스타일 로그인 화면] --- */
+/* --- [로그인 화면] --- */
 .overlay { 
     position: fixed; 
     inset: 0; 
@@ -30,14 +30,9 @@ body {
     border-radius: 24px; 
     text-align: center; 
     width: 300px; 
-    border: 2px solid #9945FF; /* 솔라나 퍼플 */
-    box-shadow: 0 0 30px rgba(153, 69, 255, 0.4), inset 0 0 15px rgba(20, 241, 149, 0.1); 
+    border: 2px solid #9945FF; 
+    box-shadow: 0 0 30px rgba(153, 69, 255, 0.4); 
     color: white;
-}
-
-.login-box h2 {
-    text-shadow: 0 0 10px #9945FF, 0 0 20px #14F195;
-    line-height: 1.4;
 }
 
 .login-box input { 
@@ -49,16 +44,8 @@ body {
     border-radius: 12px; 
     color: #14F195;
     font-family: 'Galmuri9';
-    outline: none;
-    transition: 0.3s;
 }
 
-.login-box input:focus {
-    border-color: #14F195;
-    box-shadow: 0 0 10px rgba(20, 241, 149, 0.3);
-}
-
-/* 쫀득한 솔라나 버튼 (입력감 강화) */
 .login-box button { 
     width: 95%; 
     padding: 16px; 
@@ -67,203 +54,209 @@ body {
     border: none; 
     border-radius: 12px; 
     cursor: pointer; 
-    font-weight: bold; 
-    margin-top: 15px;
     font-family: 'Galmuri9';
-    position: relative;
-    top: 0;
-    box-shadow: 0 6px 0 #6a2eb3; /* 버튼 밑면 (입체감) */
+    box-shadow: 0 6px 0 #6a2eb3;
     transition: all 0.1s;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    position: relative;
 }
 
-.login-box button:active { 
-    top: 4px; /* 클릭 시 버튼이 아래로 눌림 */
-    box-shadow: 0 2px 0 #6a2eb3; /* 밑면이 줄어듦 */
-}
+.login-box button:active { top: 4px; box-shadow: 0 2px 0 #6a2eb3; }
 
 /* --- [게임 메인 UI] --- */
-#game-container { margin-top: 26px; }
 #screen { 
     position: relative; 
     width: 360px; 
-    height: 620px; 
-    background: #fff; 
-    border-radius: 25px; 
+    height: 640px; 
+    background: #1a1a2e !important; 
+    border-radius: 30px; 
+    display: flex; 
+    flex-direction: column; 
     overflow: hidden; 
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
-    border: 4px solid #333; 
+    border: 4px solid #333;
+    margin: 0 auto;
 }
 
 #top-ui { 
     display: flex; 
     justify-content: space-between; 
     padding: 18px 25px; 
-    background: #f8f9fa; 
-    border-bottom: 2px solid #eee; 
-    font-weight: bold; 
+    background: rgba(248, 249, 250, 0.1); 
+    border-bottom: 2px solid rgba(255,255,255,0.1); 
+    color: white;
     font-size: 13px; 
+    z-index: 10;
 }
 
-/* 캐릭터 및 특수효과 */
+/* 캐릭터 영역 및 전광판 */
 #character-area {
-    position: relative; /* 자식들(전광판, 말풍선)의 기준점 */
-    height: 400px; /* 전광판부터 캐릭터까지 담을 수 있는 충분한 높이 */
+    position: relative;
+    height: 380px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end; /* 캐릭터를 바닥에 고정 */
+    justify-content: flex-end;
+    padding-bottom: 30px;
 }
 
 #rank-ticker {
     position: absolute;
-    top: 10px; /* 구석이 아닌 맨 위쪽 */
+    top: 20px;
+    width: 90%;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #14F195;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    z-index: 20;
 }
 
+.ticker-text {
+    display: inline-block;
+    white-space: nowrap;
+    color: #14F195;
+    font-size: 12px;
+    padding-left: 100%;
+    animation: ticker-scroll 40s linear infinite;
+}
+
+@keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-200%); }
+}
+
+/* [수정] 캐릭터 이미지: 흰색 배경 제거 최적화 */
+#character-img { 
+    width: 180px; 
+    cursor: pointer; 
+    transition: transform 0.1s, filter 0.5s, opacity 0.5s; 
+    z-index: 5;
+    
+    /* 1. 흰색 배경을 투명하게 만드는 가장 강력한 설정 */
+    mix-blend-mode: lighten; 
+    
+    /* 2. 이미지 자체를 선명하게 유지 */
+    filter: none;
+    background-color: transparent !important;
+}
+
+/* [수정] 잠자기 상태: 캐릭터가 검게 타지 않도록 조정 */
+.sleeping { 
+    /* brightness를 너무 낮추면 이미지 자체가 사라지므로 적절히 조절 */
+    filter: grayscale(0.6) brightness(0.8) !important; 
+    opacity: 0.6; /* 차라리 투명도를 조절하는 것이 배경색과 잘 섞입니다 */
+}
+
+/* [수정] 아담해진 말풍선 디자인 */
 #speech-bubble {
     position: absolute;
-    bottom: 200px; /* 캐릭터 키보다 조금 더 높은 위치 */
-}#character-img { width: 170px; cursor: pointer; transition: transform 0.1s; z-index: 5; }
-#character-img:active { transform: scale(0.92); }
-
-.shake { animation: shake 0.15s linear; }
-@keyframes shake {
-    0% { transform: translate(2px, 2px); }
-    50% { transform: translate(-2px, -2px); }
-    100% { transform: translate(0, 0); }
+    top: 60px; 
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #9945FF;
+    padding: 6px 12px; 
+    border-radius: 15px;
+    font-size: 11px; 
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap;
+    max-width: 150px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(153, 69, 255, 0.2);
+    z-index: 100;
+    display: none;
 }
 
-/* 잠자기 & Zzz */
-.sleeping { filter: brightness(0.4) grayscale(0.6) !important; transition: 0.8s; }
-.zzz-particle {
-    position: absolute; color: #fff; font-size: 24px; pointer-events: none;
-    animation: zzz-fly 2s linear forwards; z-index: 100; text-shadow: 2px 2px 0px #000;
-}
-@keyframes zzz-fly {
-    0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
-    20% { opacity: 1; }
-    100% { transform: translate(30px, -100px) scale(1.2); opacity: 0; }
+/* 말풍선 꼬리 복구 */
+#speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 6px 0;
+    border-style: solid;
+    border-color: #9945FF transparent transparent;
 }
 
 /* 게이지 바 */
 #bottom-ui { padding: 0 25px; }
 .gauge-container { height: 18px; background: #222; border-radius: 10px; margin-bottom: 25px; position: relative; border: 2px solid #444; }
-.gauge-fill { height: 100%; border-radius: 8px; transition: width 0.3s cubic-bezier(0.1, 0.7, 0.1, 1); }
-.gauge-label { position: absolute; width: 100%; top: -20px; right: 0; text-align: right; font-size: 11px; color: #666; font-weight: bold; }
+.gauge-fill { height: 100%; border-radius: 8px; transition: width 0.3s ease; }
+.gauge-label { position: absolute; width: 100%; top: -20px; right: 0; text-align: right; font-size: 11px; color: #aaa; }
 
-/* 게임 하단 버튼들 */
-.button-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
-.button-row button { 
-    padding: 12px 5px; border: none; border-radius: 12px; color: white; cursor: pointer; 
-    font-weight: bold; font-size: 12px; font-family: 'Galmuri9';
-    position: relative; top: 0; box-shadow: 0 4px 0 rgba(0,0,0,0.3); transition: 0.1s;
-}
-.button-row button:active { top: 3px; box-shadow: none; }
-
-/* 모달 */
-.modal-content { background: white; width: 310px; padding: 25px; border-radius: 20px; font-family: 'Galmuri9'; }
-
-/* 버튼 쫀득한 타격감 공통 */
-.solana-btn, .action-btn {
-    position: relative;
-    top: 0;
-    transition: all 0.1s;
-    cursor: pointer;
-}
-
-.solana-btn:active, .action-btn:active {
-    top: 4px; /* 아래로 쑥! */
-    filter: brightness(1.2);
-}
-/* 하단 액션 버튼별 개별 색상 및 입체감 강화 */
-
-/* 1. 먹이기 버튼 (Green) */
-.action-btn.feed {
-    background: #2ecc71;
-    box-shadow: 0 5px 0 #27ae60;
-}
-
-/* 2. 잠자기 버튼 (Dark Blue) */
-.action-btn.sleep {
-    background: #34495e;
-    box-shadow: 0 5px 0 #2c3e50;
-}
-
-/* 3. 메뉴/가방 버튼 (Purple) */
-.action-btn.bag {
-    background: #9b59b6;
-    box-shadow: 0 5px 0 #8e44ad;
-}
-
-/* 공통 클릭 효과 (이미 있는 코드를 덮어씌워 더 쫀득하게) */
-.action-btn:active {
-    top: 5px !important; /* 아래로 확실히 눌림 */
-    box-shadow: 0 0px 0 transparent !important; /* 그림자 소멸 */
-}
-
-/* 게이지 바 내부 색상 보정 (솔라나 느낌 가미) */
 #exp-bar { background: linear-gradient(90deg, #9945FF, #3498db); }
 #hungry-bar { background: linear-gradient(90deg, #14F195, #2ecc71); }
 
-/* 말풍선 디자인 보정 */
-#speech-bubble {
-    background: rgba(255, 255, 255, 0.95);
-    border: 2px solid #9945FF;
-    color: #333;
-    padding: 10px 15px;
-    border-radius: 12px;
-    font-size: 11px;
-    box-shadow: 0 4px 15px rgba(153, 69, 255, 0.2);
+/* 하단 버튼 */
+.button-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+.action-btn { 
+    padding: 12px 5px; border: none; border-radius: 12px; color: white; cursor: pointer; 
+    font-family: 'Galmuri9'; font-size: 12px; position: relative; transition: 0.1s;
 }
-/* 캐릭터 영역: 말풍선과 캐릭터를 수직으로 정렬 */
-#character-area {
-    position: relative;
-    height: 380px; /* 말풍선 공간을 위해 높이 확보 */
-    display: flex;
-    flex-direction: column;
+
+.action-btn.feed { background: #2ecc71; box-shadow: 0 5px 0 #27ae60; }
+.action-btn.sleep { background: #34495e; box-shadow: 0 5px 0 #2c3e50; }
+.action-btn.bag { background: #9b59b6; box-shadow: 0 5px 0 #8e44ad; }
+
+.action-btn:active { top: 5px; box-shadow: none; filter: brightness(1.2); }
+
+/* 모달 */
+.modal {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
     align-items: center;
-    justify-content: flex-end; /* 캐릭터를 바닥에 붙임 */
-    padding-bottom: 30px;
+    justify-content: center;
 }
-
-/* 말풍선: 캐릭터 머리 위에 절대 위치로 고정 */
-#speech-bubble {
-    position: absolute;
-    top: 40px; /* 캐릭터 머리 위 적절한 위치 */
-    left: 50%;
-    transform: translateX(-50%); /* 정확히 정중앙 */
-    background: rgba(255, 255, 255, 0.95);
-    border: 3px solid #9945FF; /* 솔라나 퍼플 테두리 */
-    padding: 12px 20px;
+.modal.active { display: flex; }
+.modal-content {
+    background: #1a1a2e;
+    color: white;
+    width: 80%;
+    padding: 20px;
     border-radius: 20px;
-    font-size: 14px;
-    font-weight: bold;
-    color: #333;
-    white-space: nowrap;
-    box-shadow: 0 8px 20px rgba(153, 69, 255, 0.2);
-    z-index: 10;
-    display: none; /* 평소엔 숨김 */
+    border: 2px solid #9945FF;
+    text-align: center;
 }
 
-/* 말풍선 꼬리 */
-#speech-bubble::after {
-    content: '';
-    position: absolute;
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 12px 10px 0;
-    border-style: solid;
-    border-color: #9945FF transparent transparent;
+/* 기타 효과 */
+.zzz-particle {
+    position: absolute; color: #fff; font-size: 24px; pointer-events: none;
+    animation: zzz-fly 2s linear forwards; z-index: 100;
 }
-
-/* 캐릭터 이미지: 클릭 시 살짝 작아지는 효과 */
-#character-img {
-    width: 180px;
-    cursor: pointer;
-    transition: transform 0.1s ease;
+@keyframes zzz-fly {
+    0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+    100% { transform: translate(30px, -100px) scale(1.2); opacity: 0; }
+}
+/* [수정] 캐릭터 이미지: 흰색 배경 제거 및 선명도 강화 */
+#character-img { 
+    width: 180px; 
+    cursor: pointer; 
+    transition: transform 0.1s, filter 0.5s; 
     z-index: 5;
+    
+    /* multiply 대신 밝은 부분을 날려버리는 필터 조합 사용 */
+    filter: screen; /* 검은 배경에서 흰색 배경을 숨기는 시도 */
+    /* 만약 위 필터가 안 먹히면 아래 주석을 해제하고 multiply를 지우세요 */
+    /* mix-blend-mode: lighten; */ 
+    
+    background-color: transparent !important;
 }
-#character-img:active {
-    transform: scale(0.95);
+
+/* 잠자기 상태일 때만 희미하게 (평소에는 선명하게) */
+.sleeping { 
+    filter: grayscale(0.8) brightness(0.5) !important; 
+    opacity: 0.7;
+}
+
+/* [추가] 레벨 표시 줄이 너무 붙지 않게 여백 조정 */
+#level-display {
+    color: white;
+    font-weight: bold;
 }
