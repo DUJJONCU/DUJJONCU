@@ -41,11 +41,15 @@
                     <span id="hg-label" class="gauge-label">100 / 100 HG</span>
                     <div id="hungry-bar" class="gauge-fill"></div>
                 </div>
+                <div class="gauge-container">
+                    <span id="mood-label" class="gauge-label">50 / 100 MOOD</span>
+                    <div id="mood-bar" class="gauge-fill" style="background: linear-gradient(90deg, #FF0080, #7928CA);"></div>
+                </div>
                 <div id="food-count-display" style="color:white; margin-bottom:10px;">🍪 남은 먹이: 5/10</div>
                 <div class="button-row">
                     <button class="action-btn feed" onclick="handleFeed()">🍪 먹이기</button>
                     <button class="action-btn sleep" onclick="toggleSleep()" id="sleep-btn">💤 잠자기</button>
-                    <button class="action-btn bag" onclick="openModal()">📜 메뉴</button>
+                    <button class="action-btn bag" onclick="openModal()">📜 전체메뉴</button>
                 </div>
             </div>
         </div>
