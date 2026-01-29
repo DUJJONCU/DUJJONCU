@@ -69,6 +69,19 @@ async function handleAuth() {
             }
         }
     } catch (e) { alert("서버 연결 실패!"); }
+
+    if (saved) {
+        if (saved.password === pw) { 
+            userData = saved; 
+            // 부족한 데이터 보정
+            if (userData.mood === undefined) userData.mood = 50;
+            if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
+            if (userData.shards === undefined) userData.shards = 0;
+            
+            loginSuccess(); 
+        }
+        // ...
+    }
 }
 
 function loginSuccess() {
@@ -84,6 +97,9 @@ function loginSuccess() {
 function gameLoop() {
     if (!userData) return;
     checkGroggy();
+
+    // 추가: mood 속성이 없는 기존 유저 보호
+    if (userData.mood === undefined) userData.mood = 50;
 
     if (isSleeping) {
         userData.hg = Math.min(100, userData.hg + 0.3);
@@ -165,17 +181,37 @@ function handleFeed() {
     } else if (userData.foodCount <= 0) alert("먹이가 부족합니다!");
 }
 
+let wakeUpTimer = null; // 강제 기상 대기 타이머
+
 function toggleSleep() {
     if (!isSleeping) {
+        // [잠자기 시작]
         isSleeping = true;
         userData.sleepEndTime = Date.now() + (30 * 60 * 1000); 
         document.getElementById('character-img').classList.add('sleeping');
         showBubble("💤 휴식 중... (30분)");
     } else {
+        // [잠자기 취소/기상 시도]
         if (Date.now() < userData.sleepEndTime) {
-            const remain = Math.ceil((userData.sleepEndTime - Date.now()) / 60000);
-            return alert(`아직 더 자야 해요! ${remain}분 남음.`);
+            if (wakeUpTimer) return alert("이미 깨어나는 중입니다!");
+
+            if (confirm("🚨 강제로 깨우시겠습니까?\n(1분 후 기상하며, 무드가 40 하락합니다!)")) {
+                showBubble("⏰ 으으... 일어나기 싫어요... (1분 뒤 기상)");
+                
+                wakeUpTimer = setTimeout(() => {
+                    isSleeping = false;
+                    userData.sleepEndTime = null;
+                    userData.mood = Math.max(0, userData.mood - 40); // 무드 하락
+                    document.getElementById('character-img').classList.remove('sleeping');
+                    showBubble("☀️ 겨우 일어났어요... (기분 안 좋음)");
+                    wakeUpTimer = null;
+                    saveData();
+                    updateUI();
+                }, 60000); // 1분(60,000ms) 대기
+            }
+            return;
         }
+        // 정상 기상
         isSleeping = false;
         userData.sleepEndTime = null;
         document.getElementById('character-img').classList.remove('sleeping');
@@ -187,6 +223,12 @@ function toggleSleep() {
 // --- [5. 시스템 및 UI] ---
 function updateUI() {
     if (!userData) return;
+
+    // 추가: mood가 없거나 숫자가 아니면 50으로 초기화
+    if (typeof userData.mood !== 'number' || isNaN(userData.mood)) {
+        userData.mood = 50;
+    }
+
     const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
     
     let moodTag = "";
@@ -265,48 +307,62 @@ function createSparkle() {
 
 // --- [5. 시스템 및 UI - 전체 메뉴 통합 섹션] ---
 
-// --- [5. 시스템 및 UI - 전체 메뉴 통합 섹션] ---
-
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
+    modal.classList.add('active');
+
+    // 1. 이미 열려있다면 내용을 비우고 새로 시작 (중복 방지)
+    content.innerHTML = ""; 
     modal.classList.add('active');
 
     const menus = [
         { id: 'm-equip', name: '⚔️ 장비', active: true },
         { id: 'm-dungeon', name: '🏹 탐험', active: true },
         { id: 'm-rank', name: '🏆 순위', active: true },
-        { id: 'm-pet', name: '🐾 애완동물', active: false },
+        { id: 'm-pet', name: '🐾 펫', active: false },
         { id: 'm-raid', name: '🐉 레이드', active: false },
-        { id: 'm-ready', name: '🚧 준비중', active: false }
+        { id: 'm-shop', name: '🏪 상점', active: false },
+        { id: 'm-skill', name: '⚡ 기술', active: false },
+        { id: 'm-quest', name: '📜 퀘스트', active: false },
+        { id: 'm-setting', name: '⚙️ 설정', active: false }
     ];
 
+    // 2. HTML 구조 생성 (UI 시안성 개선 버전)
     let html = `
         <div style="text-align:center; margin-bottom:15px;">
-            <h2 style="color:#14F195; margin:0; font-size:18px;">📜 전체 메뉴</h2>
-            <div style="display:inline-block; background:#333; padding:2px 10px; border-radius:10px; margin-top:5px;">
-                <span style="color:#FFF; font-size:11px;">보유 자원: </span>
-                <span style="color:#f1c40f; font-size:11px; font-weight:bold;">💎 ${userData.shards.toLocaleString()}</span>
+            <h2 style="color:#14F195; margin:0; font-size:20px;">📜 전체 메뉴</h2>
+            <div style="margin-top:5px;">
+                <span style="color:#f1c40f; font-size:12px; font-weight:bold;">💎 ${userData.shards.toLocaleString()}</span>
+                <span style="color:#fff; font-size:12px; margin-left:10px;">🍪 ${userData.foodCount}</span>
             </div>
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:15px;">
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;">
     `;
 
     menus.forEach(menu => {
-        const bgColor = menu.active ? '#444' : '#222';
-        const textColor = menu.active ? '#fff' : '#666';
-        const cursor = menu.active ? 'pointer' : 'not-allowed';
+        const bgColor = menu.active ? '#333' : '#1a1a1a';
+        const textColor = menu.active ? '#fff' : '#444';
+        const borderColor = menu.active ? '#9945FF' : '#222';
         const onClick = menu.active ? `onclick="showMenuDetail('${menu.id}')"` : '';
-        html += `<div ${onClick} style="background:${bgColor}; color:${textColor}; padding:10px 5px; border-radius:8px; text-align:center; font-size:11px; cursor:${cursor}; border:1px solid #333;">${menu.name}</div>`;
+
+        html += `
+            <div ${onClick} style="background:${bgColor}; color:${textColor}; border:1px solid ${borderColor}; height:60px; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">
+                ${menu.name}
+                ${!menu.active ? '<span style="font-size:8px; color:#333;">Ready</span>' : ''}
+            </div>
+        `;
     });
 
     html += `
         </div>
-        <div id="menu-detail-area" style="min-height:150px; border-top:1px solid #333; padding-top:15px; margin-bottom:15px;">
-            <p style="color:#888; text-align:center; font-size:11px; margin-top:40px;">메뉴를 선택하세요.</p>
+        <div id="menu-detail-area" style="min-height:140px; background:rgba(255,255,255,0.05); border-radius:10px; padding:10px; border:1px solid #333;">
+            <p style="color:#666; text-align:center; font-size:11px; margin-top:50px;">메뉴를 선택하세요.</p>
         </div>
-        <button class="solana-btn" onclick="closeModal()" style="background:#FF4757; width:100%; padding:10px; font-size:13px; border:none; color:white; border-radius:8px;">메뉴 닫기</button>
+        <button class="solana-btn" onclick="closeModal()" style="background:#FF4757; width:100%; margin-top:15px; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold;">닫기</button>
     `;
+
     content.innerHTML = html;
 }
 
@@ -426,4 +482,35 @@ function createZzz() {
     z.style.left = (rect.right - 50) + 'px'; z.style.top = (rect.top + 30) + 'px';
     document.body.appendChild(z);
     setTimeout(() => z.remove(), 2000);
+}
+
+// 유저 데이터에 마지막 수령 시간 저장 필요 (중복 수령 방지)
+// userData.lastFoodSupplyTime 필드가 없으면 초기 로그인 시 0으로 세팅 필요
+
+function checkFoodSupply() {
+    if (!userData) return;
+
+    const now = new Date(); // 현재 시간 (브라우저 기준 한국 시간)
+    const currentHour = now.getHours();
+    
+    // 지급 시간 설정 (22시, 04시, 10시, 16시)
+    const supplyHours = [22, 4, 10, 16];
+    
+    // 오늘 날짜의 '식별값' 생성 (예: 2024-05-20-22)
+    // 이 식별값을 사용하여 해당 타임슬롯에 이미 받았는지 확인합니다.
+    let currentSlot = "";
+    supplyHours.forEach(h => {
+        if (currentHour >= h && currentHour < h + 6) {
+            currentSlot = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${h}`;
+        }
+    });
+
+    // 만약 현재가 지급 시간대이고, 마지막으로 받은 슬롯과 다르다면 지급
+    if (currentSlot !== "" && userData.lastFoodSlot !== currentSlot) {
+        userData.foodCount = Math.min(10, userData.foodCount + 2);
+        userData.lastFoodSlot = currentSlot; // 이번 타임 수령 완료 표시
+        showBubble("🎁 정기 보급! 먹이 2개 획득!");
+        saveData();
+        updateUI();
+    }
 }
