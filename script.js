@@ -16,13 +16,15 @@ try {
     db = firebase.database();
 } catch (e) { console.error("DB 연결 실패", e); }
 
-// --- [2. 전역 변수] ---
+// --- [2. 전역 변수 및 설정] ---
 let userData = null;
 let lastClick = 0;
 let bubbleTimer = null;
 let isSleeping = false;
 let lastInteractionTime = Date.now();
 let crisisTimer = null;
+let comboCount = 0;
+let comboTimer = null;
 
 const GRADES = {
     Common: { name: "커먼", color: "#bdc3c7", power: 1.2, chance: 0.739 },
@@ -45,110 +47,102 @@ const DIALOGUES = {
     sleeping: ["Zzz..", "꿈속에서 굽는 중..", "5분만 더.."]
 };
 
-// --- [3. 인증 및 루프] ---
+// --- [3. 핵심 공식 함수] ---
+function calculateStats() {
+    if (!userData) return { tapPower: 10, luck: 5, hgDrain: 0.5, comboTime: 1500 };
+
+    let basePower = 10 + (userData.lv * 2);
+    let equipMult = 1;      
+    let hgReduction = 0;    
+    let extraLuck = 0;      
+    let extraCombo = 0;     
+
+    if (userData.inventory) {
+        if (userData.inventory.weapon) equipMult *= userData.inventory.weapon.power;
+        if (userData.inventory.helmet) equipMult *= userData.inventory.helmet.power;
+        if (userData.inventory.armor) hgReduction = (userData.inventory.armor.power * 0.05);
+        if (userData.inventory.boots) extraCombo = (userData.inventory.boots.power * 100);
+        if (userData.inventory.accessory) extraLuck = (userData.inventory.accessory.power * 2);
+    }
+
+    const titleBonus = 1 + (TITLES.filter(t => userData.lv >= t.lv).length * 0.02);
+    const moodBonus = 1 + (userData.mood / 100);
+    const comboBonus = 1 + (Math.floor(comboCount / 10) * 0.1);
+
+    return {
+        tapPower: basePower * equipMult * titleBonus * moodBonus * comboBonus,
+        luck: 5 + extraLuck,
+        hgDrain: Math.max(0.1, (0.5 + (userData.lv * 0.005)) - hgReduction),
+        comboTime: 1500 + extraCombo
+    };
+}
+
+// --- [4. 인증 및 로그인] ---
 async function handleAuth() {
     const id = document.getElementById('user-id-input').value.trim();
     const pw = document.getElementById('user-pw-input').value.trim();
-    
-    if (id.length < 4 || pw.length < 4) {
-        return alert("ID/PW를 4자 이상 입력해주세요!");
-    }
+    if (id.length < 4 || pw.length < 4) return alert("ID/PW를 4자 이상 입력해주세요!");
 
     try {
         const snap = await db.ref(`users/${id}`).once('value');
-        const saved = snap.val(); // 변수 선언
+        const saved = snap.val();
 
         if (saved) {
             if (saved.password === pw) {
                 userData = saved;
-                // 부족한 데이터 보정
-                if (userData.mood === undefined) userData.mood = 50;
-                if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
-                if (userData.shards === undefined) userData.shards = 0;
-                if (userData.lv === undefined) userData.lv = 1;
-                
+                repairData();
                 loginSuccess();
-            } else {
-                alert("비밀번호가 틀렸습니다.");
-            }
+            } else alert("비밀번호가 틀렸습니다.");
         } else {
             if (confirm(`'${id}'로 새로 시작할까요?`)) {
                 userData = {
                     id, password: pw, lv: 1, xp: 0, hg: 100, shards: 0, foodCount: 5, mood: 50,
-                    inventory: { weapon: null, armor: null, boots: null, helmet: null },
+                    inventory: { weapon: null, armor: null, boots: null, helmet: null, accessory: null },
+                    collections: { items: [], titles: [] },
                     isAdventuring: false, adventureEndTime: 0
                 };
                 await db.ref(`users/${id}`).set(userData);
                 loginSuccess();
             }
         }
-    } catch (e) {
-        console.error("인증 에러:", e);
-        alert("서버 연결 실패! 인터넷 연결이나 Firebase 설정을 확인하세요.");
-    }
+    } catch (e) { alert("연결 실패!"); }
 }
 
-function updateWeather() {
-    const weatherEl = document.getElementById('weather-display'); // HTML에 해당 ID가 있다면 표시
-    const weathers = ["☀️ 맑음", "☁️ 구름", "🌧️ 비", "❄️ 눈"];
-    const randomWeather = weathers[Math.floor(Math.random() * weathers.length)];
-    if(weatherEl) weatherEl.innerText = `현재 날씨: ${randomWeather}`;
-    console.log("날씨 동기화 완료:", randomWeather);
+function repairData() {
+    if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null, accessory: null };
+    if (userData.inventory.helmet === undefined) userData.inventory.helmet = null;
+    if (userData.inventory.boots === undefined) userData.inventory.boots = null;
+    if (!userData.collections) userData.collections = { items: [], titles: [] };
+    if (userData.mood === undefined) userData.mood = 50;
+    if (userData.shards === undefined) userData.shards = 0;
 }
 
 function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
+    updateRanking(); 
     updateWeather();
-    updateRanking();
-    setInterval(updateWeather, 60000);
     setInterval(updateRanking, 60000);
     setInterval(gameLoop, 1000);
 }
-async function updateRanking() {
-    try {
-        const snapshot = await db.ref('users').once('value');
-        const data = snapshot.val();
-        if (!data) return;
 
-        // 객체를 배열로 변환하고 XP 순으로 정렬
-        let ranks = Object.values(data).sort((a, b) => (b.xp || 0) - (a.xp || 0));
-        
-        // 상위 10명만 추출
-        const top10 = ranks.slice(0, 10);
-
-        const el = document.getElementById('ranking-list');
-        if(el) {
-            el.innerText = top10.map((u, i) => 
-                `${i+1}위: ${u.id} (Lv.${u.lv || 1})`
-            ).join("    |    ");
-        }
-    } catch(e) { 
-        console.error("전광판 갱신 실패", e); 
-    }
-}
+// --- [5. 게임 루프] ---
 function gameLoop() {
     if (!userData) return;
-    
     checkGroggy();
-    checkFoodSupply(); // <-- 매 초 혹은 매 분마다 보급 시간 확인
-
-    // 추가: mood 속성이 없는 기존 유저 보호
-    if (userData.mood === undefined) userData.mood = 50;
+    checkFoodSupply();
 
     if (isSleeping) {
         userData.hg = Math.min(100, userData.hg + 0.3);
         userData.mood = Math.min(100, userData.mood + 0.2);
         createZzz();
+        if(userData.hg >= 100) isSleeping = false; // 배부르면 잠에서 깸
     } else {
         userData.mood = Math.max(0, userData.mood - 0.05);
     }
 
-    const idleTime = Date.now() - lastInteractionTime;
-    if (idleTime > 12000) {
-        let pool = isSleeping ? DIALOGUES.sleeping : 
-                  (userData.hg < 30 ? DIALOGUES.hungry : 
-                  (userData.mood < 30 ? DIALOGUES.depressed : DIALOGUES.mzMeme));
+    if (Date.now() - lastInteractionTime > 12000) {
+        let pool = isSleeping ? DIALOGUES.sleeping : (userData.hg < 30 ? DIALOGUES.hungry : (userData.mood < 30 ? DIALOGUES.depressed : DIALOGUES.mzMeme));
         showBubble(pool[Math.floor(Math.random() * pool.length)]);
         lastInteractionTime = Date.now();
     }
@@ -163,65 +157,49 @@ function gameLoop() {
     updateUI();
 }
 
-// --- [4. 액션 함수] ---
-// --- [4. 액션 함수 수정 버전] ---
+// --- [6. 메인 액션] ---
 function handleTap() {
     if (!userData || isSleeping || userData.isAdventuring || crisisTimer) return;
     if (userData.hg <= 0) return showBubble("배고파서 기운이 없어요..");
 
-    // [돌발 이벤트] 기분 10 미만 시 30% 확률로 가출 위기
-    if (userData.mood < 10 && Math.random() < 0.3) {
-        triggerCrisis();
-        return;
-    }
-
+    const stats = calculateStats();
     const now = Date.now();
     if (now - lastClick < 80) return;
     lastClick = now;
     lastInteractionTime = now;
 
-    // 파워 및 보너스 계산
-    let power = 1.0;
-    if (userData.inventory) {
-        for (let k in userData.inventory) { 
-            if (userData.inventory[k]) power *= userData.inventory[k].power; 
-        }
-    }
-    const moodBonus = 1 + (userData.mood / 100);
-    
-    // [시각 효과] 반짝이
-    if (userData.mood >= 50) createSparkle();
+    comboCount++;
+    clearTimeout(comboTimer);
+    showComboUI(comboCount);
+    comboTimer = setTimeout(() => { comboCount = 0; hideComboUI(); }, stats.comboTime);
 
-    userData.xp += 10 * power * moodBonus;
-    userData.hg = Math.max(0, userData.hg - (0.5 + userData.lv * 0.01));
+    let isCritical = (Math.random() * 100) < stats.luck;
+    let gainedXp = stats.tapPower * (isCritical ? 3 : 1);
+
+    userData.xp += gainedXp;
+    userData.hg = Math.max(0, userData.hg - stats.hgDrain);
     userData.mood = Math.min(100, userData.mood + 0.2);
 
     const img = document.getElementById('character-img');
-    img.style.transform = `scale(1.1) rotate(${Math.random() * 10 - 5}deg)`;
-    img.classList.remove('shake');
-    void img.offsetWidth;
-    img.classList.add('shake');
-    setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 100);
+    img.style.transform = `scale(${isCritical ? 1.2 : 1.1}) rotate(${Math.random() * 10 - 5}deg)`;
+    if (isCritical) {
+        showBubble("💥 CRITICAL!!");
+        triggerCriticalEffect();
+    }
+    if (userData.mood >= 50) createSparkle();
 
-    // ★ 중요: 탭할 때마다 레벨업 체크 실행
-    checkLevelUp(); 
+    checkLevelUp();
     updateUI();
 }
 
-// [정상 분리된 레벨업 함수] 하나만 남겨두세요.
 function checkLevelUp() {
-    if (!userData) return;
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
-    
-    // 현재 경험치가 다음 레벨 요구치에 도달하면 레벨업
-    if (userData.xp >= nextXP) { 
-        userData.lv++; 
-        userData.foodCount = Math.min(10, userData.foodCount + 5); 
+    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5); 
+    if (userData.xp >= nextXP) {
+        userData.lv++;
+        userData.foodCount = Math.min(10, userData.foodCount + 2); 
         showBubble("🎉 LEVEL UP!! Lv." + userData.lv);
-        
-        // 레벨업 즉시 저장 (랭킹 반영)
-        saveData(); 
-        updateUI();
+        triggerLevelUpEffect();
+        saveData();
     }
 }
 
@@ -232,314 +210,117 @@ function handleFeed() {
         userData.mood = Math.min(100, userData.mood + 10);
         showBubble("냠냠! 맛있다 🍪");
         saveData();
-    } else if (userData.foodCount <= 0) alert("먹이가 부족합니다!");
+        updateUI();
+    } else alert("먹이가 부족하거나 배부릅니다!");
 }
 
-let wakeUpTimer = null; // 강제 기상 대기 타이머
-
-function toggleSleep() {
-    if (!isSleeping) {
-        // [잠자기 시작]
-        isSleeping = true;
-        userData.sleepEndTime = Date.now() + (30 * 60 * 1000); 
-        document.getElementById('character-img').classList.add('sleeping');
-        showBubble("💤 휴식 중... (30분)");
-    } else {
-        // [잠자기 취소/기상 시도]
-        if (Date.now() < userData.sleepEndTime) {
-            if (wakeUpTimer) return alert("이미 깨어나는 중입니다!");
-
-            if (confirm("🚨 강제로 깨우시겠습니까?\n(1분 후 기상하며, 무드가 40 하락합니다!)")) {
-                showBubble("⏰ 으으... 일어나기 싫어요... (1분 뒤 기상)");
-                
-                wakeUpTimer = setTimeout(() => {
-                    isSleeping = false;
-                    userData.sleepEndTime = null;
-                    userData.mood = Math.max(0, userData.mood - 40); // 무드 하락
-                    document.getElementById('character-img').classList.remove('sleeping');
-                    showBubble("☀️ 겨우 일어났어요... (기분 안 좋음)");
-                    wakeUpTimer = null;
-                    saveData();
-                    updateUI();
-                }, 60000); // 1분(60,000ms) 대기
-            }
-            return;
-        }
-        // 정상 기상
-        isSleeping = false;
-        userData.sleepEndTime = null;
-        document.getElementById('character-img').classList.remove('sleeping');
-        showBubble("☀️ 상쾌한 아침!");
-    }
-    saveData();
-}
-
-// --- [5. 시스템 및 UI] ---
+// --- [7. UI 및 모달] ---
 function updateUI() {
     if (!userData) return;
 
-    // 추가: mood가 없거나 숫자가 아니면 50으로 초기화
-    if (typeof userData.mood !== 'number' || isNaN(userData.mood)) {
-        userData.mood = 50;
-    }
+    const prevXP = userData.lv === 1 ? 0 : Math.floor(Math.pow(userData.lv - 1, 2.8) * 300 * 1.5);
+    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5);
 
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
+    const requiredXPInThisLevel = nextXP - prevXP;
+    const currentXPInThisLevel = userData.xp - prevXP;
     
-    let moodTag = "";
-    let nameColor = "#9945FF";
-    if (userData.mood >= 80) { moodTag = " 🥰 [행복]"; nameColor = "#14F195"; }
-    else if (userData.mood >= 40) { moodTag = " 😊 [보통]"; nameColor = "#9945FF"; }
-    else if (userData.mood >= 15) { moodTag = " 😕 [우울]"; nameColor = "#ff9f43"; }
-    else { moodTag = " 😭 [절망]"; nameColor = "#ff4757"; }
+    let xpPercent = ((currentXPInThisLevel / requiredXPInThisLevel) * 100).toFixed(2);
+    if (xpPercent < 0) xpPercent = "0.00";
+    if (xpPercent > 100) xpPercent = "100.00";
 
-    const titleData = TITLES.filter(t => userData.lv >= t.lv).slice(-1)[0];
-    document.getElementById('user-title').innerHTML = `<span style="color:${nameColor}">[${titleData.name}]</span> Lv.${userData.lv}${moodTag}`;
+    const expBar = document.getElementById('exp-bar');
+    if (expBar) expBar.style.width = xpPercent + "%";
+    const expLabel = document.getElementById('exp-label');
+    if (expLabel) expLabel.innerText = xpPercent + "%";
 
-    document.getElementById('exp-bar').style.width = Math.min(100, (userData.xp/nextXP)*100) + "%";
-    document.getElementById('exp-label').innerText = `${Math.floor(userData.xp).toLocaleString()} / ${nextXP.toLocaleString()} XP`;
-    document.getElementById('hungry-bar').style.width = userData.hg + "%";
-    document.getElementById('hg-label').innerText = `${Math.floor(userData.hg)} HG`;
+    const hgBar = document.getElementById('hungry-bar');
+    if (hgBar) hgBar.style.width = userData.hg + "%";
+    document.getElementById('hg-label').innerText = `😋 ${Math.floor(userData.hg)}%`;
 
-    if(document.getElementById('mood-bar')) {
-        document.getElementById('mood-bar').style.width = userData.mood + "%";
-        document.getElementById('mood-label').innerText = `${Math.floor(userData.mood)} MOOD`;
-    }
-    document.getElementById('food-count-display').innerText = `🍪 먹이: ${userData.foodCount}/10 | 💎 조각: ${userData.shards}`;
+    const moodBar = document.getElementById('mood-bar');
+    if (moodBar) moodBar.style.width = userData.mood + "%";
+    document.getElementById('mood-label').innerText = `🎭 ${Math.floor(userData.mood)}%`;
+
+    document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
+    document.getElementById('shard-val').innerText = userData.shards.toLocaleString();
 }
-
-function triggerCrisis() {
-    if (crisisTimer) return;
-    showBubble("💢 나 진짜 나갈 거예요! (달래기 클릭!!)");
-    const charImg = document.getElementById('character-img');
-    charImg.style.filter = "sepia(1) saturate(5) hue-rotate(-50deg)";
-
-    const rescueBtn = document.createElement('button');
-    rescueBtn.innerText = "❤️ 달래기 (터치!)";
-    rescueBtn.style.cssText = "position:fixed; top:40%; left:50%; transform:translate(-50%, -50%); z-index:2001; padding:20px; background:red; color:white; border-radius:10px; font-family:'Galmuri9'; border:none; box-shadow: 0 0 20px white; cursor:pointer;";
-    
-    rescueBtn.onclick = () => {
-        clearTimeout(crisisTimer);
-        crisisTimer = null;
-        userData.mood = 35;
-        charImg.style.filter = "";
-        rescueBtn.remove();
-        showBubble("흥, 이번만 참는 거예요.");
-        saveData();
-        updateUI();
-    };
-    document.body.appendChild(rescueBtn);
-
-    crisisTimer = setTimeout(() => {
-        rescueBtn.remove();
-        charImg.style.opacity = "0"; 
-        showBubble("😭 결국 가출했습니다... (잠시 후 복귀)");
-        userData.xp = Math.max(0, userData.xp - 500); 
-        setTimeout(() => {
-            charImg.style.opacity = "1";
-            charImg.style.filter = "";
-            crisisTimer = null;
-            userData.mood = 20;
-            saveData();
-            updateUI();
-        }, 5000); 
-    }, 5000);
-}
-
-function createSparkle() {
-    const char = document.getElementById('character-img');
-    const rect = char.getBoundingClientRect();
-    const s = document.createElement('div');
-    s.innerText = "✨";
-    s.style.cssText = `position:fixed; left:${rect.left + Math.random() * rect.width}px; top:${rect.top + Math.random() * 20}px; font-size:20px; pointer-events:none; z-index:1000; transition:all 0.8s ease-out;`;
-    document.body.appendChild(s);
-    setTimeout(() => {
-        s.style.transform = `translate(${(Math.random() - 0.5) * 100}px, -100px) rotate(${Math.random() * 360}deg)`;
-        s.style.opacity = '0';
-    }, 20);
-    setTimeout(() => s.remove(), 800);
-}
-
-// --- [5. 시스템 및 UI - 전체 메뉴 통합 섹션] ---
 
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
-    
-    if (!modal || !content) return; // 요소가 없으면 실행 중단
-
-    // 1. 초기화: 이미 열려있을 수 있으므로 클래스 제거 후 다시 시작
-    modal.classList.remove('active'); 
-    void modal.offsetWidth; // 브라우저 리플로우 강제 실행 (애니메이션 초기화)
-    
-    content.innerHTML = ""; // 이전 내용 비우기
+    if (!modal || !content) return;
     modal.classList.add('active');
-
-    const menus = [
-        { id: 'm-equip', name: '⚔️ 장비', active: true },
-        { id: 'm-dungeon', name: '🏹 탐험', active: true },
-        { id: 'm-rank', name: '🏆 순위', active: true },
-        { id: 'm-pet', name: '🐾 펫', active: false },
-        { id: 'm-raid', name: '🐉 레이드', active: false },
-        { id: 'm-shop', name: '🏪 상점', active: false },
-        { id: 'm-skill', name: '⚡ 기술', active: false },
-        { id: 'm-quest', name: '📜 퀘스트', active: false },
-        { id: 'm-setting', name: '⚙️ 설정', active: false }
-    ];
-
-    // 2. HTML 구조 생성
+    
     let html = `
-        <div style="text-align:center; margin-bottom:15px;">
-            <h2 style="color:#14F195; margin:0; font-size:20px;">📜 전체 메뉴</h2>
-            <div style="margin-top:5px;">
-                <span style="color:#f1c40f; font-size:12px; font-weight:bold;">💎 ${userData.shards.toLocaleString()}</span>
-                <span style="color:#fff; font-size:12px; margin-left:10px;">🍪 ${userData.foodCount}</span>
-            </div>
-        </div>
+        <div style="text-align:center; margin-bottom:15px;"><h2 style="color:#14F195; margin:0; font-size:18px;">📜 전체 메뉴</h2></div>
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;">
-    `;
-
-    menus.forEach(menu => {
-        const bgColor = menu.active ? '#333' : '#1a1a1a';
-        const textColor = menu.active ? '#fff' : '#444';
-        const borderColor = menu.active ? '#9945FF' : '#222';
-        const onClick = menu.active ? `onclick="showMenuDetail('${menu.id}')"` : '';
-
-        html += `
-            <div ${onClick} style="background:${bgColor}; color:${textColor}; border:1px solid ${borderColor}; height:60px; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">
-                ${menu.name}
-                ${!menu.active ? '<span style="font-size:8px; color:#555;">Ready</span>' : ''}
-            </div>
-        `;
-    });
-
-    html += `
+            <div onclick="showMenuDetail('m-equip')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">⚔️ 장비</div>
+            <div onclick="showMenuDetail('m-dungeon')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏹 탐험</div>
+            <div onclick="showMenuDetail('m-rank')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏆 순위</div>
         </div>
-        <div id="menu-detail-area" style="min-height:140px; background:rgba(255,255,255,0.05); border-radius:10px; padding:10px; border:1px solid #333;">
-            <p style="color:#666; text-align:center; font-size:11px; margin-top:50px;">메뉴를 선택하세요.</p>
+        <div id="menu-detail-area" style="min-height:160px; background:rgba(0,0,0,0.3); border-radius:10px; padding:10px; border:1px solid #333;">
+            <p style="text-align:center; color:#666; font-size:11px; margin-top:60px;">메뉴를 선택하세요.</p>
         </div>
-        <button class="solana-btn" onclick="closeModal()" style="background:#FF4757; width:100%; margin-top:15px; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold;">닫기</button>
+        <button onclick="closeModal()" style="background:#FF4757; width:100%; margin-top:15px; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold; cursor:pointer;">닫기</button>
     `;
-
     content.innerHTML = html;
 }
 
-// async를 붙여야 내부의 await(순위 로딩)가 정상 작동합니다.
 async function showMenuDetail(menuId) {
     const detailArea = document.getElementById('menu-detail-area');
     let html = '';
 
     if (menuId === 'm-equip') {
-        if(!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
-        const parts = { weapon: "⚔️ 무기", armor: "👕 방어구", boots: "👟 신발", helmet: "🪖 투구" };
-        html = `<b style="color:#9945FF; font-size:13px;">📦 장비 프로토콜 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">`;
+        const parts = { weapon: "⚔️ 무기", helmet: "🪖 투구", armor: "👕 갑옷", boots: "👟 신발", accessory: "💍 악세" };
+        html = `<b style="color:#9945FF; font-size:12px;">📦 장비 제작 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; max-height:150px; overflow-y:auto;">`;
         for (let key in parts) {
             const item = userData.inventory[key];
             const gName = item ? GRADES[item.grade].name : "미착용";
-            const gColor = item ? GRADES[item.grade].color : "#666";
-            html += `
-                <div style="background:#222; padding:8px; border-radius:8px; border:1px solid ${gColor};">
-                    <span style="color:#aaa; font-size:9px;">${parts[key]}</span><br>
-                    <b style="color:${gColor}; font-size:11px;">${gName}</b><br>
-                    <button onclick="craftInMenu('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">제작</button>
-                </div>`;
+            const gColor = item ? GRADES[item.grade].color : "#555";
+            html += `<div style="background:#222; padding:8px; border-radius:8px; border:1px solid ${gColor}; text-align:center;">
+                        <span style="font-size:9px; color:#aaa;">${parts[key]}</span><br>
+                        <b style="color:${gColor}; font-size:10px;">${gName}</b>
+                        <button onclick="craftInMenu('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">제작</button>
+                    </div>`;
         }
         html += `</div>`;
-    } 
-    else if (menuId === 'm-dungeon') {
-        html = `
-            <b style="color:#14F195; font-size:13px;">🏹 원격 탐험 시스템</b>
-            <div style="background:#222; padding:12px; border-radius:8px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid #333;">
-                <div><span style="font-size:11px; color:#fff; display:block;">심해 던전</span><span style="font-size:9px; color:#888;">40 HG / 5분</span></div>
-                ${userData.isAdventuring ? `<span style="color:#f1c40f; font-size:11px;">탐험 중...</span>` : `<button onclick="startAdventureInMenu()" style="padding:6px 12px; font-size:11px; cursor:pointer;">출발</button>`}
-            </div>`;
-    } 
-    else if (menuId === 'm-rank') {
-    detailArea.innerHTML = `<p style="color:#fff; text-align:center; font-size:11px;">🏆 명예의 전당 로딩 중...</p>`;
-    try {
+    } else if (menuId === 'm-rank') {
+        detailArea.innerHTML = "로딩 중...";
         const snap = await db.ref('users').once('value');
-        const data = snap.val();
-        let ranks = Object.values(data).sort((a, b) => (b.xp || 0) - (a.xp || 0));
-        const top10 = ranks.slice(0, 10);
-
-        html = `<b style="color:#f1c40f; font-size:13px;">🏆 실시간 TOP 10</b>
-                <div style="background:#1a1a1a; padding:5px; border-radius:8px; margin-top:8px; border:1px solid #333; max-height:200px; overflow-y:auto;">`;
-        
-        top10.forEach((u, i) => {
-            const isMe = (userData && u.id === userData.id) ? "border:1px solid #14F195; background:rgba(20,241,149,0.1);" : "";
-            const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}.`;
-            
-            html += `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin:2px 0; border-radius:5px; ${isMe} font-size:11px;">
-                    <span>${medal} <b>${u.id}</b></span>
-                    <div style="text-align:right;">
-                        <span style="color:#14F195;">Lv.${u.lv || 1}</span><br>
-                        <span style="color:#666; font-size:9px;">${Math.floor(u.xp || 0).toLocaleString()} XP</span>
-                    </div>
-                </div>`;
-        });
-        html += `</div>`;
-    } catch (e) { 
-        html = `<p style="color:red; text-align:center;">데이터 로드 실패</p>`; 
+        const ranks = Object.values(snap.val() || {}).sort((a, b) => b.xp - a.xp).slice(0, 5);
+        html = `<b style="color:#f1c40f;">🏆 TOP 5</b><div style="margin-top:5px;">` + 
+               ranks.map((u, i) => `<div style="font-size:11px; margin-bottom:3px;">${i+1}. ${u.id} (Lv.${u.lv})</div>`).join('') + `</div>`;
+    } else if (menuId === 'm-dungeon') {
+        html = `<b style="color:#14F195;">🏹 원격 탐험</b><p style="font-size:10px; color:#aaa;">조각을 찾아 떠납니다 (5분)</p>
+                <button onclick="startAdventureInMenu()" style="width:100%; padding:10px; background:#14F195; border:none; border-radius:5px; color:#000; font-weight:bold; cursor:pointer;">${userData.isAdventuring ? '탐험 중...' : '출발 (40 HG)'}</button>`;
     }
-}
     detailArea.innerHTML = html;
 }
 
-// 누락되었던 실행 함수들 추가
+// --- [8. 보조 함수들] ---
 function craftInMenu(type) {
     if (userData.shards < 500) return alert("조각이 부족합니다!");
     userData.shards -= 500;
     const rand = Math.random();
     let grade = "Common", cum = 0;
     for (let g in GRADES) { cum += GRADES[g].chance; if (rand <= cum) { grade = g; break; } }
-    userData.inventory[type] = { grade: grade, power: GRADES[grade].power };
-    alert(`🔨 [${GRADES[grade].name}] 제작 성공!`);
-    saveData();
-    showMenuDetail('m-equip'); // 제작 후 화면 갱신
+    userData.inventory[type] = { grade, power: GRADES[grade].power };
+    alert(`🔨 [${GRADES[grade].name}] ${type} 제작 완료!`);
+    saveData(); showMenuDetail('m-equip');
 }
 
 function startAdventureInMenu() {
-    if (userData.hg < 40) return alert("배고파서 못 가요!");
+    if (userData.isAdventuring) return;
+    if (userData.hg < 40) return alert("배고파요!");
     userData.hg -= 40;
     userData.isAdventuring = true;
     userData.adventureEndTime = Date.now() + (5 * 60 * 1000);
-    saveData();
-    showMenuDetail('m-dungeon'); // 상태 변경 후 갱신
-}
-
-function checkGroggy() {
-    if (!userData) return;
-    const now = Date.now();
-    const charImg = document.getElementById('character-img');
-    if (userData.hg <= 0 || (userData.groggyEndTime && now < userData.groggyEndTime)) {
-        if (!userData.groggyEndTime) userData.groggyEndTime = now + (6 * 3600000);
-        isSleeping = true;
-        charImg.classList.add('sleeping');
-    }
-}
-
-
-
-async function updateRanking() {
-    try {
-        // XP 순으로 상위 10명 호출
-        const snapshot = await db.ref('users').orderByChild('xp').limitToLast(10).once('value');
-        let ranks = []; 
-        snapshot.forEach(snap => ranks.push(snap.val())); 
-        ranks.reverse(); 
-
-        const el = document.getElementById('ranking-list');
-        if(el) {
-            // [점검 포인트] 각 유저의 현재 lv 값을 확실히 출력
-            el.innerText = ranks.map((u, i) => 
-                `${i+1}위: ${u.id} (Lv.${u.lv || 1})`
-            ).join("    |    ");
-        }
-    } catch(e) { console.error("전광판 갱신 실패", e); }
+    saveData(); showMenuDetail('m-dungeon');
 }
 
 function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
 function closeModal() { document.getElementById('game-modal').classList.remove('active'); }
+
 function showBubble(msg) {
     const b = document.getElementById('speech-bubble');
     if(!b) return;
@@ -547,43 +328,82 @@ function showBubble(msg) {
     if(bubbleTimer) clearTimeout(bubbleTimer);
     bubbleTimer = setTimeout(() => b.style.display = 'none', 2500);
 }
+
+function showComboUI(c) {
+    let el = document.getElementById('combo-display');
+    if(!el) {
+        el = document.createElement('div'); 
+        el.id = 'combo-display';
+        const container = document.getElementById('game-container');
+        if(container) container.appendChild(el);
+    }
+    // 텍스트 설정 (숫자 강조)
+    el.innerHTML = `<span style="font-size: 32px; color: #FF4757;">${c}</span> COMBO!`; 
+    el.style.display = 'block';
+    // 애니메이션 초기화
+    el.style.animation = 'none';
+    el.offsetHeight; /* 강제 리플로우 */
+    el.style.animation = 'combo-pop 0.3s ease-out forwards';
+}
+function hideComboUI() { const el = document.getElementById('combo-display'); if(el) el.style.display = 'none'; }
+
 function createZzz() {
     const char = document.getElementById('character-img');
-    const z = document.createElement('div');
-    z.className = 'zzz-particle'; z.innerText = 'Z';
+    const z = document.createElement('div'); z.className = 'zzz-particle'; z.innerText = 'Z';
     const rect = char.getBoundingClientRect();
     z.style.left = (rect.right - 50) + 'px'; z.style.top = (rect.top + 30) + 'px';
-    document.body.appendChild(z);
-    setTimeout(() => z.remove(), 2000);
+    document.body.appendChild(z); setTimeout(() => z.remove(), 2000);
 }
 
-// 유저 데이터에 마지막 수령 시간 저장 필요 (중복 수령 방지)
-// userData.lastFoodSupplyTime 필드가 없으면 초기 로그인 시 0으로 세팅 필요
+function createSparkle() {
+    const char = document.getElementById('character-img');
+    const rect = char.getBoundingClientRect();
+    const s = document.createElement('div'); s.innerText = "✨";
+    s.style.cssText = `position:fixed; left:${rect.left + Math.random() * rect.width}px; top:${rect.top}px; font-size:20px; pointer-events:none; transition:0.8s; z-index:100;`;
+    document.body.appendChild(s);
+    setTimeout(() => { s.style.transform = `translate(0, -100px)`; s.style.opacity = '0'; }, 20);
+    setTimeout(() => s.remove(), 800);
+}
+
+function triggerLevelUpEffect() {
+    for(let i=0; i<15; i++) {
+        const s = document.createElement('div'); s.innerText = "⭐";
+        s.style.cssText = `position:fixed; left:${Math.random()*100}vw; top:${Math.random()*100}vh; z-index:3000; animation: flare 1s forwards;`;
+        document.body.appendChild(s); setTimeout(() => s.remove(), 1000);
+    }
+}
+
+function triggerCriticalEffect() {
+    const img = document.getElementById('character-img');
+    img.style.filter = "brightness(2)";
+    setTimeout(() => img.style.filter = "", 150);
+}
+
+function updateWeather() {
+    const el = document.getElementById('weather-display');
+    const ws = ["☀️ 맑음", "☁️ 구름", "🌧️ 비", "❄️ 눈"];
+    if(el) el.innerText = `현재 날씨: ${ws[Math.floor(Math.random()*ws.length)]}`;
+}
+
+async function updateRanking() {
+    const snap = await db.ref('users').once('value');
+    const top10 = Object.values(snap.val() || {}).sort((a,b)=>b.xp-a.xp).slice(0, 10);
+    const el = document.getElementById('ranking-list');
+    if(el) el.innerText = top10.map((u,i)=>`${i+1}위: ${u.id}`).join(" | ");
+}
+
+function checkGroggy() { if (userData.hg <= 0) isSleeping = true; }
 
 function checkFoodSupply() {
-    if (!userData) return;
-
-    const now = new Date(); // 현재 시간 (브라우저 기준 한국 시간)
-    const currentHour = now.getHours();
-    
-    // 지급 시간 설정 (22시, 04시, 10시, 16시)
-    const supplyHours = [22, 4, 10, 16];
-    
-    // 오늘 날짜의 '식별값' 생성 (예: 2024-05-20-22)
-    // 이 식별값을 사용하여 해당 타임슬롯에 이미 받았는지 확인합니다.
-    let currentSlot = "";
-    supplyHours.forEach(h => {
-        if (currentHour >= h && currentHour < h + 6) {
-            currentSlot = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${h}`;
-        }
-    });
-
-    // 만약 현재가 지급 시간대이고, 마지막으로 받은 슬롯과 다르다면 지급
-    if (currentSlot !== "" && userData.lastFoodSlot !== currentSlot) {
+    const now = new Date();
+    const h = now.getHours();
+    const supply = [22, 4, 10, 16];
+    let slot = "";
+    supply.forEach(sh => { if(h >= sh && h < sh+6) slot = `${now.getDate()}-${sh}`; });
+    if(slot && userData.lastFoodSlot !== slot) {
         userData.foodCount = Math.min(10, userData.foodCount + 2);
-        userData.lastFoodSlot = currentSlot; // 이번 타임 수령 완료 표시
-        showBubble("🎁 정기 보급! 먹이 2개 획득!");
-        saveData();
-        updateUI();
+        userData.lastFoodSlot = slot;
+        showBubble("🎁 정기 보급 완료!");
+        saveData(); updateUI();
     }
 }

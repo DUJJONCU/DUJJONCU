@@ -31,28 +31,38 @@
                 <div id="speech-bubble"></div>
                 <img id="character-img" src="character.png" onclick="handleTap()" alt="두쫀쿠">
             </div>
-
-            <div id="bottom-ui">
-                <div class="gauge-container">
-                    <span id="exp-label" class="gauge-label">0 / 0 XP</span>
-                    <div id="exp-bar" class="gauge-fill"></div>
-                </div>
-                <div class="gauge-container">
-                    <span id="hg-label" class="gauge-label">100 / 100 HG</span>
-                    <div id="hungry-bar" class="gauge-fill"></div>
-                </div>
-                <div class="gauge-container">
-                    <span id="mood-label" class="gauge-label">50 / 100 MOOD</span>
-                    <div id="mood-bar" class="gauge-fill" style="background: linear-gradient(90deg, #FF0080, #7928CA);"></div>
-                </div>
-                <div id="food-count-display" style="color:white; margin-bottom:10px;">🍪 남은 먹이: 5/10</div>
-                <div class="button-row">
-                    <button class="action-btn feed" onclick="handleFeed()">🍪 먹이기</button>
-                    <button class="action-btn sleep" onclick="toggleSleep()" id="sleep-btn">💤 잠자기</button>
-                    <button class="action-btn bag" onclick="openModal()">📜 전체메뉴</button>
-                </div>
-            </div>
+<div id="bottom-ui">
+    <div class="exp-wrapper">
+        <div class="exp-bar-bg">
+            <div id="exp-bar" class="gauge-fill" style="width: 40%;"></div>
         </div>
+        <span id="exp-label" class="exp-text">0.000%</span>
+    </div>
+    
+    <div class="status-row">
+        <div class="mini-gauge">
+            <div id="hungry-bar" class="gauge-fill" style="width: 10%;"></div>
+            <span id="hg-label" class="mini-label">100 HG</span>
+        </div>
+        <div class="mini-gauge">
+            <div id="mood-bar" class="gauge-fill" style="width: 90%;"></div>
+            <span id="mood-label" class="mini-label">50 MOOD</span>
+        </div>
+    </div>
+
+    <div id="food-count-display">
+        <span>🍪 먹이: <span id="food-val">5/10</span></span>
+        <span>|</span>
+        <span>💎 조각: <span id="shard-val">489</span></span>
+    </div>
+
+    <div class="button-row">
+        <button class="action-btn feed" onclick="handleFeed()">🍪 먹이기</button>
+        <button class="action-btn sleep" onclick="toggleSleep()" id="sleep-btn">💤 잠자기</button>
+        <button class="action-btn bag" onclick="openModal()">📜 메뉴</button>
+    </div>
+</div>
+         </div>
     </div>
 
     <div id="game-modal" class="modal">
