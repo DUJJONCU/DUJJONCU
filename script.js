@@ -129,7 +129,9 @@ async function updateRanking() {
 }
 function gameLoop() {
     if (!userData) return;
+    
     checkGroggy();
+    checkFoodSupply(); // <-- 매 초 혹은 매 분마다 보급 시간 확인
 
     // 추가: mood 속성이 없는 기존 유저 보호
     if (userData.mood === undefined) userData.mood = 50;
@@ -516,23 +518,7 @@ function checkGroggy() {
     }
 }
 
-function checkLevelUp() {
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
-    if (userData.xp >= nextXP) { userData.xp = 0; userData.lv++; userData.foodCount = Math.min(10, userData.foodCount + 5); showBubble("🎉 LEVEL UP!!"); }
-}
 
-function checkLevelUp() {
-    // 현재 레벨 기준 필요한 '총 경험치' 통계 방식이라면:
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
-    
-    // 만약 현재 경험치가 다음 레벨 요구치보다 높다면 레벨업만 시키고 xp는 그대로 둡니다.
-    if (userData.xp >= nextXP) { 
-        userData.lv++; 
-        userData.foodCount = Math.min(10, userData.foodCount + 5); 
-        showBubble("🎉 LEVEL UP!! Lv." + userData.lv);
-        saveData(); // 레벨업 즉시 DB 반영
-    }
-}
 
 async function updateRanking() {
     try {
