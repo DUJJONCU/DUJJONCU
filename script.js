@@ -263,25 +263,100 @@ function createSparkle() {
     setTimeout(() => s.remove(), 800);
 }
 
+// --- [5. 시스템 및 UI - 전체 메뉴 통합 섹션] ---
+
+// --- [5. 시스템 및 UI - 전체 메뉴 통합 섹션] ---
+
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
     modal.classList.add('active');
-    if(!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
-    const inv = userData.inventory;
-    const parts = { weapon: "⚔️ 무기", armor: "👕 방어구", boots: "👟 신발", helmet: "🪖 투구" };
 
-    let html = `<h2 style="color:#14F195; margin-bottom:15px; font-size:18px;">📜 전체 메뉴</h2><div style="text-align:left; margin-bottom:15px;"><b style="color:#9945FF; font-size:13px;">📦 장비제작 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:5px;">`;
-    for (let key in parts) {
-        const item = inv[key];
-        const gName = item ? GRADES[item.grade].name : "미착용";
-        const gColor = item ? GRADES[item.grade].color : "#555";
-        html += `<div style="background:#222; padding:8px; border-radius:8px; border:1px solid ${gColor}; font-size:11px;"><span style="color:#aaa;">${parts[key]}</span><br><b style="color:${gColor};">${gName}</b><br><button onclick="craftInMenu('${key}')" style="margin-top:4px; font-size:9px; cursor:pointer;">제작</button></div>`;
-    }
-    html += `</div></div><div style="text-align:left; margin-bottom:20px;"><b style="color:#14F195; font-size:13px;">🏹 던전 탐험 (5분)</b><div style="background:#222; padding:10px; border-radius:8px; margin-top:5px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:11px; color:#ccc;">심해 던전</span>${userData.isAdventuring ? `<span style="color:#f1c40f; font-size:11px;">탐험 중...</span>` : `<button class="solana-btn" onclick="startAdventureInMenu()" style="padding:5px 10px; font-size:11px;">출발(40HG)</button>`}</div></div><button class="solana-btn" onclick="closeModal()" style="background:#555; width:100%;">닫기</button>`;
+    const menus = [
+        { id: 'm-equip', name: '⚔️ 장비', active: true },
+        { id: 'm-dungeon', name: '🏹 탐험', active: true },
+        { id: 'm-rank', name: '🏆 순위', active: true },
+        { id: 'm-pet', name: '🐾 애완동물', active: false },
+        { id: 'm-raid', name: '🐉 레이드', active: false },
+        { id: 'm-ready', name: '🚧 준비중', active: false }
+    ];
+
+    let html = `
+        <div style="text-align:center; margin-bottom:15px;">
+            <h2 style="color:#14F195; margin:0; font-size:18px;">📜 전체 메뉴</h2>
+            <div style="display:inline-block; background:#333; padding:2px 10px; border-radius:10px; margin-top:5px;">
+                <span style="color:#FFF; font-size:11px;">보유 자원: </span>
+                <span style="color:#f1c40f; font-size:11px; font-weight:bold;">💎 ${userData.shards.toLocaleString()}</span>
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:15px;">
+    `;
+
+    menus.forEach(menu => {
+        const bgColor = menu.active ? '#444' : '#222';
+        const textColor = menu.active ? '#fff' : '#666';
+        const cursor = menu.active ? 'pointer' : 'not-allowed';
+        const onClick = menu.active ? `onclick="showMenuDetail('${menu.id}')"` : '';
+        html += `<div ${onClick} style="background:${bgColor}; color:${textColor}; padding:10px 5px; border-radius:8px; text-align:center; font-size:11px; cursor:${cursor}; border:1px solid #333;">${menu.name}</div>`;
+    });
+
+    html += `
+        </div>
+        <div id="menu-detail-area" style="min-height:150px; border-top:1px solid #333; padding-top:15px; margin-bottom:15px;">
+            <p style="color:#888; text-align:center; font-size:11px; margin-top:40px;">메뉴를 선택하세요.</p>
+        </div>
+        <button class="solana-btn" onclick="closeModal()" style="background:#FF4757; width:100%; padding:10px; font-size:13px; border:none; color:white; border-radius:8px;">메뉴 닫기</button>
+    `;
     content.innerHTML = html;
 }
 
+// async를 붙여야 내부의 await(순위 로딩)가 정상 작동합니다.
+async function showMenuDetail(menuId) {
+    const detailArea = document.getElementById('menu-detail-area');
+    let html = '';
+
+    if (menuId === 'm-equip') {
+        if(!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
+        const parts = { weapon: "⚔️ 무기", armor: "👕 방어구", boots: "👟 신발", helmet: "🪖 투구" };
+        html = `<b style="color:#9945FF; font-size:13px;">📦 장비 프로토콜 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">`;
+        for (let key in parts) {
+            const item = userData.inventory[key];
+            const gName = item ? GRADES[item.grade].name : "미착용";
+            const gColor = item ? GRADES[item.grade].color : "#666";
+            html += `
+                <div style="background:#222; padding:8px; border-radius:8px; border:1px solid ${gColor};">
+                    <span style="color:#aaa; font-size:9px;">${parts[key]}</span><br>
+                    <b style="color:${gColor}; font-size:11px;">${gName}</b><br>
+                    <button onclick="craftInMenu('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">제작</button>
+                </div>`;
+        }
+        html += `</div>`;
+    } 
+    else if (menuId === 'm-dungeon') {
+        html = `
+            <b style="color:#14F195; font-size:13px;">🏹 원격 탐험 시스템</b>
+            <div style="background:#222; padding:12px; border-radius:8px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid #333;">
+                <div><span style="font-size:11px; color:#fff; display:block;">심해 던전</span><span style="font-size:9px; color:#888;">40 HG / 5분</span></div>
+                ${userData.isAdventuring ? `<span style="color:#f1c40f; font-size:11px;">탐험 중...</span>` : `<button onclick="startAdventureInMenu()" style="padding:6px 12px; font-size:11px; cursor:pointer;">출발</button>`}
+            </div>`;
+    } 
+    else if (menuId === 'm-rank') {
+        detailArea.innerHTML = `<p style="color:#fff; text-align:center; font-size:11px;">랭킹 로딩 중...</p>`;
+        try {
+            const snap = await db.ref('users').orderByChild('xp').limitToLast(10).once('value');
+            let ranks = []; snap.forEach(s => ranks.push(s.val())); ranks.reverse();
+            html = `<b style="color:#f1c40f; font-size:13px;">🏆 TOP 10 실시간 순위</b><div style="background:#1a1a1a; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #333;">`;
+            ranks.forEach((u, i) => {
+                const isMe = u.id === userData.id ? "border:1px solid #14F195; background:#222;" : "";
+                html += `<div style="display:flex; justify-content:space-between; font-size:11px; padding:4px; ${isMe}"><span>${i+1}. ${u.id}</span><span>Lv.${u.lv}</span></div>`;
+            });
+            html += `</div>`;
+        } catch (e) { html = `<p>로딩 실패</p>`; }
+    }
+    detailArea.innerHTML = html;
+}
+
+// 누락되었던 실행 함수들 추가
 function craftInMenu(type) {
     if (userData.shards < 500) return alert("조각이 부족합니다!");
     userData.shards -= 500;
@@ -291,7 +366,7 @@ function craftInMenu(type) {
     userData.inventory[type] = { grade: grade, power: GRADES[grade].power };
     alert(`🔨 [${GRADES[grade].name}] 제작 성공!`);
     saveData();
-    openModal();
+    showMenuDetail('m-equip'); // 제작 후 화면 갱신
 }
 
 function startAdventureInMenu() {
@@ -300,7 +375,7 @@ function startAdventureInMenu() {
     userData.isAdventuring = true;
     userData.adventureEndTime = Date.now() + (5 * 60 * 1000);
     saveData();
-    openModal();
+    showMenuDetail('m-dungeon'); // 상태 변경 후 갱신
 }
 
 function checkGroggy() {
