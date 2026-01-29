@@ -49,39 +49,51 @@ const DIALOGUES = {
 async function handleAuth() {
     const id = document.getElementById('user-id-input').value.trim();
     const pw = document.getElementById('user-pw-input').value.trim();
-    if (id.length < 4 || pw.length < 4) return alert("ID/PW 4자 이상!");
+    
+    if (id.length < 4 || pw.length < 4) {
+        return alert("ID/PW를 4자 이상 입력해주세요!");
+    }
 
     try {
         const snap = await db.ref(`users/${id}`).once('value');
-        const saved = snap.val();
+        const saved = snap.val(); // 변수 선언
+
         if (saved) {
-            if (saved.password === pw) { userData = saved; loginSuccess(); }
-            else alert("비밀번호가 틀렸습니다.");
+            if (saved.password === pw) {
+                userData = saved;
+                // 부족한 데이터 보정
+                if (userData.mood === undefined) userData.mood = 50;
+                if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
+                if (userData.shards === undefined) userData.shards = 0;
+                if (userData.lv === undefined) userData.lv = 1;
+                
+                loginSuccess();
+            } else {
+                alert("비밀번호가 틀렸습니다.");
+            }
         } else {
             if (confirm(`'${id}'로 새로 시작할까요?`)) {
                 userData = {
                     id, password: pw, lv: 1, xp: 0, hg: 100, shards: 0, foodCount: 5, mood: 50,
                     inventory: { weapon: null, armor: null, boots: null, helmet: null },
-                    isAdventuring: false, adventureEndTime: 0, groggyEndTime: null, sleepEndTime: null
+                    isAdventuring: false, adventureEndTime: 0
                 };
                 await db.ref(`users/${id}`).set(userData);
                 loginSuccess();
             }
         }
-    } catch (e) { alert("서버 연결 실패!"); }
-
-    if (saved) {
-        if (saved.password === pw) { 
-            userData = saved; 
-            // 부족한 데이터 보정
-            if (userData.mood === undefined) userData.mood = 50;
-            if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null };
-            if (userData.shards === undefined) userData.shards = 0;
-            
-            loginSuccess(); 
-        }
-        // ...
+    } catch (e) {
+        console.error("인증 에러:", e);
+        alert("서버 연결 실패! 인터넷 연결이나 Firebase 설정을 확인하세요.");
     }
+}
+
+function updateWeather() {
+    const weatherEl = document.getElementById('weather-display'); // HTML에 해당 ID가 있다면 표시
+    const weathers = ["☀️ 맑음", "☁️ 구름", "🌧️ 비", "❄️ 눈"];
+    const randomWeather = weathers[Math.floor(Math.random() * weathers.length)];
+    if(weatherEl) weatherEl.innerText = `현재 날씨: ${randomWeather}`;
+    console.log("날씨 동기화 완료:", randomWeather);
 }
 
 function loginSuccess() {
@@ -93,7 +105,28 @@ function loginSuccess() {
     setInterval(updateRanking, 60000);
     setInterval(gameLoop, 1000);
 }
+async function updateRanking() {
+    try {
+        const snapshot = await db.ref('users').once('value');
+        const data = snapshot.val();
+        if (!data) return;
 
+        // 객체를 배열로 변환하고 XP 순으로 정렬
+        let ranks = Object.values(data).sort((a, b) => (b.xp || 0) - (a.xp || 0));
+        
+        // 상위 10명만 추출
+        const top10 = ranks.slice(0, 10);
+
+        const el = document.getElementById('ranking-list');
+        if(el) {
+            el.innerText = top10.map((u, i) => 
+                `${i+1}위: ${u.id} (Lv.${u.lv || 1})`
+            ).join("    |    ");
+        }
+    } catch(e) { 
+        console.error("전광판 갱신 실패", e); 
+    }
+}
 function gameLoop() {
     if (!userData) return;
     checkGroggy();
@@ -129,6 +162,7 @@ function gameLoop() {
 }
 
 // --- [4. 액션 함수] ---
+// --- [4. 액션 함수 수정 버전] ---
 function handleTap() {
     if (!userData || isSleeping || userData.isAdventuring || crisisTimer) return;
     if (userData.hg <= 0) return showBubble("배고파서 기운이 없어요..");
@@ -167,8 +201,26 @@ function handleTap() {
     img.classList.add('shake');
     setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 100);
 
-    checkLevelUp();
-    saveData();
+    // ★ 중요: 탭할 때마다 레벨업 체크 실행
+    checkLevelUp(); 
+    updateUI();
+}
+
+// [정상 분리된 레벨업 함수] 하나만 남겨두세요.
+function checkLevelUp() {
+    if (!userData) return;
+    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
+    
+    // 현재 경험치가 다음 레벨 요구치에 도달하면 레벨업
+    if (userData.xp >= nextXP) { 
+        userData.lv++; 
+        userData.foodCount = Math.min(10, userData.foodCount + 5); 
+        showBubble("🎉 LEVEL UP!! Lv." + userData.lv);
+        
+        // 레벨업 즉시 저장 (랭킹 반영)
+        saveData(); 
+        updateUI();
+    }
 }
 
 function handleFeed() {
@@ -310,10 +362,14 @@ function createSparkle() {
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
-    modal.classList.add('active');
+    
+    if (!modal || !content) return; // 요소가 없으면 실행 중단
 
-    // 1. 이미 열려있다면 내용을 비우고 새로 시작 (중복 방지)
-    content.innerHTML = ""; 
+    // 1. 초기화: 이미 열려있을 수 있으므로 클래스 제거 후 다시 시작
+    modal.classList.remove('active'); 
+    void modal.offsetWidth; // 브라우저 리플로우 강제 실행 (애니메이션 초기화)
+    
+    content.innerHTML = ""; // 이전 내용 비우기
     modal.classList.add('active');
 
     const menus = [
@@ -328,7 +384,7 @@ function openModal() {
         { id: 'm-setting', name: '⚙️ 설정', active: false }
     ];
 
-    // 2. HTML 구조 생성 (UI 시안성 개선 버전)
+    // 2. HTML 구조 생성
     let html = `
         <div style="text-align:center; margin-bottom:15px;">
             <h2 style="color:#14F195; margin:0; font-size:20px;">📜 전체 메뉴</h2>
@@ -337,7 +393,6 @@ function openModal() {
                 <span style="color:#fff; font-size:12px; margin-left:10px;">🍪 ${userData.foodCount}</span>
             </div>
         </div>
-
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;">
     `;
 
@@ -350,7 +405,7 @@ function openModal() {
         html += `
             <div ${onClick} style="background:${bgColor}; color:${textColor}; border:1px solid ${borderColor}; height:60px; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">
                 ${menu.name}
-                ${!menu.active ? '<span style="font-size:8px; color:#333;">Ready</span>' : ''}
+                ${!menu.active ? '<span style="font-size:8px; color:#555;">Ready</span>' : ''}
             </div>
         `;
     });
@@ -397,18 +452,34 @@ async function showMenuDetail(menuId) {
             </div>`;
     } 
     else if (menuId === 'm-rank') {
-        detailArea.innerHTML = `<p style="color:#fff; text-align:center; font-size:11px;">랭킹 로딩 중...</p>`;
-        try {
-            const snap = await db.ref('users').orderByChild('xp').limitToLast(10).once('value');
-            let ranks = []; snap.forEach(s => ranks.push(s.val())); ranks.reverse();
-            html = `<b style="color:#f1c40f; font-size:13px;">🏆 TOP 10 실시간 순위</b><div style="background:#1a1a1a; padding:10px; border-radius:8px; margin-top:8px; border:1px solid #333;">`;
-            ranks.forEach((u, i) => {
-                const isMe = u.id === userData.id ? "border:1px solid #14F195; background:#222;" : "";
-                html += `<div style="display:flex; justify-content:space-between; font-size:11px; padding:4px; ${isMe}"><span>${i+1}. ${u.id}</span><span>Lv.${u.lv}</span></div>`;
-            });
-            html += `</div>`;
-        } catch (e) { html = `<p>로딩 실패</p>`; }
+    detailArea.innerHTML = `<p style="color:#fff; text-align:center; font-size:11px;">🏆 명예의 전당 로딩 중...</p>`;
+    try {
+        const snap = await db.ref('users').once('value');
+        const data = snap.val();
+        let ranks = Object.values(data).sort((a, b) => (b.xp || 0) - (a.xp || 0));
+        const top10 = ranks.slice(0, 10);
+
+        html = `<b style="color:#f1c40f; font-size:13px;">🏆 실시간 TOP 10</b>
+                <div style="background:#1a1a1a; padding:5px; border-radius:8px; margin-top:8px; border:1px solid #333; max-height:200px; overflow-y:auto;">`;
+        
+        top10.forEach((u, i) => {
+            const isMe = (userData && u.id === userData.id) ? "border:1px solid #14F195; background:rgba(20,241,149,0.1);" : "";
+            const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}.`;
+            
+            html += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin:2px 0; border-radius:5px; ${isMe} font-size:11px;">
+                    <span>${medal} <b>${u.id}</b></span>
+                    <div style="text-align:right;">
+                        <span style="color:#14F195;">Lv.${u.lv || 1}</span><br>
+                        <span style="color:#666; font-size:9px;">${Math.floor(u.xp || 0).toLocaleString()} XP</span>
+                    </div>
+                </div>`;
+        });
+        html += `</div>`;
+    } catch (e) { 
+        html = `<p style="color:red; text-align:center;">데이터 로드 실패</p>`; 
     }
+}
     detailArea.innerHTML = html;
 }
 
@@ -450,19 +521,35 @@ function checkLevelUp() {
     if (userData.xp >= nextXP) { userData.xp = 0; userData.lv++; userData.foodCount = Math.min(10, userData.foodCount + 5); showBubble("🎉 LEVEL UP!!"); }
 }
 
-function updateWeather() {
-    const hour = new Date().getHours();
-    const screen = document.getElementById('screen');
-    if(screen) screen.style.background = (hour >= 6 && hour < 18) ? "linear-gradient(180deg, #74ebd5, #ACB6E5)" : "linear-gradient(180deg, #141E30, #243B55)";
+function checkLevelUp() {
+    // 현재 레벨 기준 필요한 '총 경험치' 통계 방식이라면:
+    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300);
+    
+    // 만약 현재 경험치가 다음 레벨 요구치보다 높다면 레벨업만 시키고 xp는 그대로 둡니다.
+    if (userData.xp >= nextXP) { 
+        userData.lv++; 
+        userData.foodCount = Math.min(10, userData.foodCount + 5); 
+        showBubble("🎉 LEVEL UP!! Lv." + userData.lv);
+        saveData(); // 레벨업 즉시 DB 반영
+    }
 }
 
 async function updateRanking() {
     try {
+        // XP 순으로 상위 10명 호출
         const snapshot = await db.ref('users').orderByChild('xp').limitToLast(10).once('value');
-        let ranks = []; snapshot.forEach(snap => ranks.push(snap.val())); ranks.reverse();
+        let ranks = []; 
+        snapshot.forEach(snap => ranks.push(snap.val())); 
+        ranks.reverse(); 
+
         const el = document.getElementById('ranking-list');
-        if(el) el.innerText = ranks.map((u, i) => `${i+1}위: ${u.id}(Lv.${u.lv})`).join("  |  ");
-    } catch(e) {}
+        if(el) {
+            // [점검 포인트] 각 유저의 현재 lv 값을 확실히 출력
+            el.innerText = ranks.map((u, i) => 
+                `${i+1}위: ${u.id} (Lv.${u.lv || 1})`
+            ).join("    |    ");
+        }
+    } catch(e) { console.error("전광판 갱신 실패", e); }
 }
 
 function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
