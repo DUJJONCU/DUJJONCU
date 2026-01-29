@@ -136,7 +136,11 @@ function gameLoop() {
         userData.hg = Math.min(100, userData.hg + 0.3);
         userData.mood = Math.min(100, userData.mood + 0.2);
         createZzz();
-        if(userData.hg >= 100) isSleeping = false; // 배부르면 잠에서 깸
+        if(userData.hg >= 100) {
+            isSleeping = false;
+            document.getElementById('character-img').classList.remove('sleeping');
+            document.getElementById('sleep-btn').innerText = "💤 잠자기";
+        }
     } else {
         userData.mood = Math.max(0, userData.mood - 0.05);
     }
@@ -159,46 +163,71 @@ function gameLoop() {
 
 // --- [6. 메인 액션] ---
 function handleTap() {
+    console.log("클릭 감지됨!"); // 이 줄을 함수 맨 위에 추가하세요.
+
+    if (!userData) {
+        console.log("유저 데이터가 없음!");
+        return;
+    }
+    // 1. 가드 조건 확인
     if (!userData || isSleeping || userData.isAdventuring || crisisTimer) return;
-    if (userData.hg <= 0) return showBubble("배고파서 기운이 없어요..");
+    if (userData.hg <= 0) {
+        showBubble("배고파서 기운이 없어요..");
+        return;
+    }
 
     const stats = calculateStats();
     const now = Date.now();
-    if (now - lastClick < 80) return;
+    
+    // 매크로 방지용 쿨타임 (너무 짧으면 80 -> 50으로 줄여보세요)
+    if (now - lastClick < 50) return; 
     lastClick = now;
     lastInteractionTime = now;
 
+    // 2. 콤보 처리
     comboCount++;
     clearTimeout(comboTimer);
     showComboUI(comboCount);
-    comboTimer = setTimeout(() => { comboCount = 0; hideComboUI(); }, stats.comboTime);
+    comboTimer = setTimeout(() => { 
+        comboCount = 0; 
+        hideComboUI(); 
+    }, stats.comboTime);
 
+    // 3. 경험치 계산 (핵심!)
     let isCritical = (Math.random() * 100) < stats.luck;
-    let gainedXp = stats.tapPower * (isCritical ? 3 : 1);
+    // tapPower가 너무 낮으면 티가 안 날 수 있으니 최소값을 보장해봅시다.
+    let gainedXp = Math.max(10, stats.tapPower) * (isCritical ? 3 : 1);
 
+    // 실제 데이터에 더하기
     userData.xp += gainedXp;
     userData.hg = Math.max(0, userData.hg - stats.hgDrain);
     userData.mood = Math.min(100, userData.mood + 0.2);
 
+    // 4. 즉시 반영 (이 순서가 중요합니다)
+    checkLevelUp(); // 레벨업 먼저 확인
+    updateUI();     // 그다음 화면 갱신
+    saveData();     // 마지막으로 DB 저장 (비동기)
+
+    // 5. 시각 효과
     const img = document.getElementById('character-img');
-    img.style.transform = `scale(${isCritical ? 1.2 : 1.1}) rotate(${Math.random() * 10 - 5}deg)`;
+    if (img) {
+        img.style.transform = `scale(${isCritical ? 1.2 : 1.1}) rotate(${Math.random() * 10 - 5}deg)`;
+        setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 100);
+    }
+    
     if (isCritical) {
         showBubble("💥 CRITICAL!!");
         triggerCriticalEffect();
     }
-    if (userData.mood >= 50) createSparkle();
-
-    checkLevelUp();
-    updateUI();
 }
 
 function checkLevelUp() {
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5); 
+    let nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5);
     if (userData.xp >= nextXP) {
         userData.lv++;
-        userData.foodCount = Math.min(10, userData.foodCount + 2); 
-        showBubble("🎉 LEVEL UP!! Lv." + userData.lv);
+        userData.shards += (userData.lv * 100); 
         triggerLevelUpEffect();
+        showBubble(`🎉 LEVEL UP! (Lv.${userData.lv})`);
         saveData();
     }
 }
@@ -214,44 +243,72 @@ function handleFeed() {
     } else alert("먹이가 부족하거나 배부릅니다!");
 }
 
+function toggleSleep() {
+    if (!userData) return;
+    isSleeping = !isSleeping;
+    const btn = document.getElementById('sleep-btn');
+    const img = document.getElementById('character-img');
+    
+    if (isSleeping) {
+        btn.innerText = "⏰ 깨우기";
+        img.classList.add('sleeping');
+        showBubble("Zzz... 잠드는 중...");
+    } else {
+        btn.innerText = "💤 잠자기";
+        img.classList.remove('sleeping');
+        showBubble("번쩍! 잘 잤다!");
+    }
+    saveData();
+}
+
 // --- [7. UI 및 모달] ---
+// [수정] 경험치 바 업데이트 로직
 function updateUI() {
     if (!userData) return;
 
-    const prevXP = userData.lv === 1 ? 0 : Math.floor(Math.pow(userData.lv - 1, 2.8) * 300 * 1.5);
-    const nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5);
-
-    const requiredXPInThisLevel = nextXP - prevXP;
-    const currentXPInThisLevel = userData.xp - prevXP;
+    // 1. 경험치 계산 (공식 최적화)
+    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.8) * 300 * 1.5);
+    const prevXP = userData.lv === 1 ? 0 : getLevelXP(userData.lv - 1);
+    const nextXP = getLevelXP(userData.lv);
     
-    let xpPercent = ((currentXPInThisLevel / requiredXPInThisLevel) * 100).toFixed(2);
-    if (xpPercent < 0) xpPercent = "0.00";
-    if (xpPercent > 100) xpPercent = "100.00";
+    const requiredXPInThisLevel = nextXP - prevXP;
+    const currentXPInThisLevel = Math.max(0, userData.xp - prevXP);
+    
+    let xpPercent = (currentXPInThisLevel / requiredXPInThisLevel) * 100;
+    xpPercent = Math.min(100, Math.max(0, xpPercent));
 
+    // 2. DOM 반영 (정확한 ID 참조)
     const expBar = document.getElementById('exp-bar');
-    if (expBar) expBar.style.width = xpPercent + "%";
     const expLabel = document.getElementById('exp-label');
-    if (expLabel) expLabel.innerText = xpPercent + "%";
+    
+    if (expBar) {
+        expBar.style.width = xpPercent + "%";
+    }
+    if (expLabel) {
+        // 소수점 3자리까지 표시해서 아주 미세하게 움직이는 것도 보이게 함
+        expLabel.innerText = xpPercent.toFixed(3) + "%";
+    }
 
-    const hgBar = document.getElementById('hungry-bar');
-    if (hgBar) hgBar.style.width = userData.hg + "%";
-    document.getElementById('hg-label').innerText = `😋 ${Math.floor(userData.hg)}%`;
+    // 3. 기타 상태바 (허기, 기분)
+    document.getElementById('hungry-bar').style.width = userData.hg + "%";
+    document.getElementById('hg-label').innerText = `${Math.floor(userData.hg)} HG`;
 
-    const moodBar = document.getElementById('mood-bar');
-    if (moodBar) moodBar.style.width = userData.mood + "%";
-    document.getElementById('mood-label').innerText = `🎭 ${Math.floor(userData.mood)}%`;
+    document.getElementById('mood-bar').style.width = userData.mood + "%";
+    document.getElementById('mood-label').innerText = `${Math.floor(userData.mood)} MOOD`;
 
     document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
-    document.getElementById('shard-val').innerText = userData.shards.toLocaleString();
+    document.getElementById('shard-val').innerText = Math.floor(userData.shards).toLocaleString();
+
+    const title = TITLES.filter(t => userData.lv >= t.lv).pop();
+    document.getElementById('user-title').innerText = `[${title.name}] Lv.${userData.lv}`;
 }
 
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
-    if (!modal || !content) return;
     modal.classList.add('active');
     
-    let html = `
+    content.innerHTML = `
         <div style="text-align:center; margin-bottom:15px;"><h2 style="color:#14F195; margin:0; font-size:18px;">📜 전체 메뉴</h2></div>
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;">
             <div onclick="showMenuDetail('m-equip')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">⚔️ 장비</div>
@@ -263,7 +320,6 @@ function openModal() {
         </div>
         <button onclick="closeModal()" style="background:#FF4757; width:100%; margin-top:15px; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold; cursor:pointer;">닫기</button>
     `;
-    content.innerHTML = html;
 }
 
 async function showMenuDetail(menuId) {
@@ -334,16 +390,11 @@ function showComboUI(c) {
     if(!el) {
         el = document.createElement('div'); 
         el.id = 'combo-display';
-        const container = document.getElementById('game-container');
-        if(container) container.appendChild(el);
+        document.getElementById('character-area').appendChild(el);
     }
-    // 텍스트 설정 (숫자 강조)
+    el.style.left = (c % 2 === 0) ? '75%' : '25%';
     el.innerHTML = `<span style="font-size: 32px; color: #FF4757;">${c}</span> COMBO!`; 
     el.style.display = 'block';
-    // 애니메이션 초기화
-    el.style.animation = 'none';
-    el.offsetHeight; /* 강제 리플로우 */
-    el.style.animation = 'combo-pop 0.3s ease-out forwards';
 }
 function hideComboUI() { const el = document.getElementById('combo-display'); if(el) el.style.display = 'none'; }
 
@@ -380,9 +431,22 @@ function triggerCriticalEffect() {
 }
 
 function updateWeather() {
-    const el = document.getElementById('weather-display');
-    const ws = ["☀️ 맑음", "☁️ 구름", "🌧️ 비", "❄️ 눈"];
-    if(el) el.innerText = `현재 날씨: ${ws[Math.floor(Math.random()*ws.length)]}`;
+    const container = document.getElementById('character-area');
+    const weatherList = ["☀️ 맑음", "🌧️ 비", "❄️ 눈"];
+    const current = weatherList[Math.floor(Math.random() * weatherList.length)];
+    document.querySelectorAll('.weather-particle').forEach(p => p.remove());
+    if (current === "🌧️ 비" || current === "❄️ 눈") {
+        const emoji = current === "🌧️ 비" ? "💧" : "❄️";
+        for (let i = 0; i < 20; i++) {
+            const p = document.createElement('div');
+            p.className = 'weather-particle';
+            p.innerText = emoji;
+            p.style.left = Math.random() * 100 + "%";
+            p.style.animationDuration = (Math.random() * 2 + 1) + "s";
+            p.style.animationDelay = Math.random() * 2 + "s";
+            container.appendChild(p);
+        }
+    }
 }
 
 async function updateRanking() {
@@ -392,7 +456,7 @@ async function updateRanking() {
     if(el) el.innerText = top10.map((u,i)=>`${i+1}위: ${u.id}`).join(" | ");
 }
 
-function checkGroggy() { if (userData.hg <= 0) isSleeping = true; }
+function checkGroggy() { if (userData && userData.hg <= 0) isSleeping = true; }
 
 function checkFoodSupply() {
     const now = new Date();
@@ -400,7 +464,7 @@ function checkFoodSupply() {
     const supply = [22, 4, 10, 16];
     let slot = "";
     supply.forEach(sh => { if(h >= sh && h < sh+6) slot = `${now.getDate()}-${sh}`; });
-    if(slot && userData.lastFoodSlot !== slot) {
+    if(slot && userData && userData.lastFoodSlot !== slot) {
         userData.foodCount = Math.min(10, userData.foodCount + 2);
         userData.lastFoodSlot = slot;
         showBubble("🎁 정기 보급 완료!");
