@@ -361,23 +361,56 @@ async function showMenuDetail(menuId) {
     let html = '';
 
     if (menuId === 'm-equip') {
-        const parts = { weapon: "⚔️ 무기", helmet: "🪖 투구", armor: "👕 갑옷", boots: "👟 신발", accessory: "💍 악세" };
-        html = `<b style="color:#9945FF; font-size:12px;">📦 장비 제작 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; max-height:150px; overflow-y:auto;">`;
-        for (let key in parts) {
-            const item = userData.inventory[key];
-            const levelText = item ? ` (+${item.level})` : "";
-            const gName = item ? GRADES[item.grade].name : "미착용";
-            const gColor = item ? GRADES[item.grade].color : "#555";
-            html += `<div style="...">
-            <span style="font-size:9px; color:#aaa;">${parts[key]}</span><br>
-            <b style="color:${gColor}; font-size:10px;">${gName}${levelText}</b>
-            <button onclick="upgradeItem('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">
-                ${item ? '강화' : '제작'}
-            </button>
-         </div>`;
+    const parts = { 
+        weapon: { label: "무기", icon: "⚔️" }, 
+        helmet: { label: "투구", icon: "🪖" }, 
+        armor: { label: "갑옷", icon: "👕" }, 
+        boots: { label: "신발", icon: "👟" }, 
+        accessory: { label: "반지", icon: "💍" } 
+    };
+
+    html = `<div style="text-align:center; margin-bottom:10px;">
+                <b style="color:#9945FF; font-size:14px;">📦 대장간</b><br>
+                <small style="color:#888;">강화 성공 시 +1 / 실패 시 -1 (10강 달성 시 승급!)</small>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:280px; overflow-y:auto; padding:5px;">`;
+
+    for (let key in parts) {
+        const item = userData.inventory[key];
+        const gName = item ? GRADES[item.grade].name : "미착용";
+        const gColor = item ? GRADES[item.grade].color : "#555";
+        const level = item ? item.level : 0;
+        
+        // 강화 게이지 생성 (10칸)
+        let gauge = `<div style="display:flex; gap:1px; margin:4px 0;">`;
+        for(let i=1; i<=10; i++) {
+            gauge += `<div style="flex:1; height:4px; background:${i <= level ? gColor : '#333'}; border-radius:2px;"></div>`;
         }
-        html += `</div>`;
-    } 
+        gauge += `</div>`;
+
+        html += `
+            <div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:12px; border:1px solid ${item ? gColor : '#333'}; position:relative; overflow:hidden;">
+                <div style="position:absolute; top:-20px; right:-20px; font-size:40px; opacity:0.1;">${parts[key].icon}</div>
+                
+                <div style="display:flex; align-items:center; gap:5px; margin-bottom:5px;">
+                    <span style="font-size:16px;">${parts[key].icon}</span>
+                    <span style="font-size:10px; color:#aaa;">${parts[key].label}</span>
+                </div>
+
+                <div style="color:${gColor}; font-size:11px; font-weight:bold;">
+                    ${gName} <span style="color:#fff;">+${level}</span>
+                </div>
+                
+                ${gauge}
+
+                <button onclick="upgradeItem('${key}')" 
+                        style="width:100%; margin-top:8px; padding:6px; font-size:10px; background:${item ? '#444' : '#9945FF'}; color:#fff; border:none; border-radius:6px; cursor:pointer; transition:0.2s;">
+                    ${item ? `강화 (${(level+1)*200}💎)` : '제작 (500💎)'}
+                </button>
+            </div>`;
+    }
+    html += `</div>`;
+} 
     else if (menuId === 'm-rank') {
         detailArea.innerHTML = "로딩 중...";
         const snap = await db.ref('users').once('value');
