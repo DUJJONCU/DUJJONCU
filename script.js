@@ -482,7 +482,10 @@ function updateUI() {
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
-    modal.classList.add('active');
+    if (!modal || !content) return;
+
+    // 모달 활성화 (방법 통일)
+    modal.style.display = 'block';
     
     // 이 안에 기부 버튼 코드가 들어있어야 합니다.
     content.innerHTML = `
@@ -757,8 +760,13 @@ async function startZoneExplore(zoneIdx) {
 }
 
 function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
-function closeModal() { document.getElementById('game-modal').classList.remove('active'); }
-
+// 3. 모달 닫기 공통 함수 (기존에 있다면 확인만 하세요)
+function closeModal() {
+    const modal = document.getElementById('game-modal');
+    const modalContent = document.getElementById('modal-tab-content');
+    if (modal) modal.style.display = 'none';
+    if (modalContent) modalContent.innerHTML = ""; 
+}
 function showBubble(text) {
     const bubble = document.getElementById('speech-bubble');
     const bubbleText = document.getElementById('bubble-text');
@@ -952,3 +960,83 @@ setInterval(updateWeather, 30000);
 
 // 🚀 게임 시작 시 즉시 실행 (가장 중요!)
 setTimeout(updateWeather, 1000);
+
+// 스킨 목록 데이터
+// 1. 스킨 데이터 (배경 이미지 경로가 있다면 url('경로') 형태로 바꾸세요)
+const SKINS = {
+    'default': { name: '오리지널 블랙', background: '#050505' },
+    'solana': { name: '솔라나 네온', background: 'linear-gradient(135deg, #14F195 0%, #9945FF 100%)' },
+    'midnight': { name: '미드나잇 블루', background: 'linear-gradient(to bottom, #020111, #191970)' },
+    'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' }
+};
+
+// 스킨 메뉴 열기
+function openSkinMenu() {
+    const modal = document.getElementById('game-modal');
+    const modalContent = document.getElementById('modal-tab-content');
+    if (!modal || !modalContent) return;
+
+    modal.style.display = 'block';
+
+    let html = `
+        <div id="skin-menu-container" style="padding: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="color: #14F195; margin: 0;">🎨 스킨 보관함</h3>
+                <span onclick="closeModal()" style="cursor:pointer; color:#888; font-size:24px;">&times;</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    `;
+
+    for (let key in SKINS) {
+        html += `
+            <div onclick="applySkin('${key}')" style="
+                cursor: pointer; padding: 20px 10px; border-radius: 12px;
+                background: ${SKINS[key].background}; border: 2px solid rgba(255,255,255,0.1);
+                text-align: center; transition: transform 0.2s;
+            ">
+                <span style="color: white; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${SKINS[key].name}</span>
+            </div>
+        `;
+    }
+    html += `</div></div>`;
+    modalContent.innerHTML = html;
+}
+// --- [기존의 복잡한 applySkin 부분을 지우고 이걸로 교체] ---
+
+function applySkin(skinId) {
+    const screen = document.getElementById('screen');
+    const skin = SKINS[skinId];
+    
+    // 1. 안전 장치
+    if (!screen || !skin) return;
+
+    // 2. 배경 스타일 적용 (UI 레이어 방해 금지)
+    screen.style.backgroundImage = "none"; 
+    screen.style.background = skin.background;
+    screen.style.backgroundSize = "cover";
+    screen.style.backgroundPosition = "center";
+
+    // 3. 데이터 저장 (함수 이름 확인: saveData 혹은 saveGameData)
+    if (userData) {
+        userData.currentSkin = skinId;
+        // 본인의 저장 함수 이름에 맞춰 하나만 사용하세요
+        if (typeof saveData === 'function') saveData();
+        else if (typeof saveGameData === 'function') saveGameData();
+    }
+    
+    // 4. 모달 닫기 및 내용 비우기 (중요!)
+    closeModal();
+    
+    // 5. 브라우저 클릭 버그 방지 및 피드백
+    window.dispatchEvent(new Event('resize'));
+    showBubble(`✨ 새로운 스킨 적용 완료!`);
+}
+
+// 모달 닫기 함수 (이건 하나만 있으면 됩니다)
+function closeModal() {
+    const modal = document.getElementById('game-modal');
+    const modalContent = document.getElementById('modal-tab-content');
+    
+    if (modal) modal.style.display = 'none';
+    if (modalContent) modalContent.innerHTML = ""; 
+}
