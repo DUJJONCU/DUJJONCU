@@ -35,9 +35,13 @@ const GRADES = {
 };
 
 const TITLES = [
-    { lv: 0, name: "밀가루 반죽" }, { lv: 10, name: "오븐 구경꾼" },
-    { lv: 50, name: "바삭한 쿠키" }, { lv: 150, name: "은색의 미식가" },
-    { lv: 500, name: "황금 요리사" }
+    { lv: 0, name: "밀가루 반죽" },
+    { lv: 10, name: "오븐 구경꾼" },
+    { lv: 30, name: "초보 쿠키" },
+    { lv: 70, name: "바삭한 모험가" },
+    { lv: 120, name: "베테랑 쿠키" },
+    { lv: 170, name: "전설의 황금반죽" },
+    { lv: 200, name: "🍪 솔라나 마스터" }
 ];
 
 const DIALOGUES = {
@@ -266,6 +270,29 @@ function toggleSleep() {
 function updateUI() {
     if (!userData) return;
 
+    // --- [상태 체크 로직 추가] ---
+    const statusTag = document.getElementById('status-tag');
+    let statusText = "● 활동중";
+    let statusColor = "#14F195"; // 기본 민트색
+
+    if (userData.hg <= 0) {
+        statusText = "● 그로기 (탈진)";
+        statusColor = "#ff4757"; // 빨간색
+    } else if (isSleeping) {
+        statusText = "● 휴식 중";
+        statusColor = "#3498db"; // 파란색
+    } else if (userData.isAdventuring) {
+        statusText = "● 탐험 중";
+        statusColor = "#f1c40f"; // 노란색
+    }
+
+    if (statusTag) {
+        statusTag.innerText = statusText;
+        statusTag.style.color = statusColor;
+        statusTag.style.border = `1px solid ${statusColor}`;
+    }
+    // --- [상태 체크 로직 끝] ---
+
     // 1. 경험치 계산 (공식 최적화)
     const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.8) * 300 * 1.5);
     const prevXP = userData.lv === 1 ? 0 : getLevelXP(userData.lv - 1);
@@ -340,16 +367,43 @@ async function showMenuDetail(menuId) {
                     </div>`;
         }
         html += `</div>`;
-    } else if (menuId === 'm-rank') {
+    } 
+    else if (menuId === 'm-rank') {
         detailArea.innerHTML = "로딩 중...";
         const snap = await db.ref('users').once('value');
-        const ranks = Object.values(snap.val() || {}).sort((a, b) => b.xp - a.xp).slice(0, 5);
-        html = `<b style="color:#f1c40f;">🏆 TOP 5</b><div style="margin-top:5px;">` + 
-               ranks.map((u, i) => `<div style="font-size:11px; margin-bottom:3px;">${i+1}. ${u.id} (Lv.${u.lv})</div>`).join('') + `</div>`;
-    } else if (menuId === 'm-dungeon') {
-        html = `<b style="color:#14F195;">🏹 원격 탐험</b><p style="font-size:10px; color:#aaa;">조각을 찾아 떠납니다 (5분)</p>
-                <button onclick="startAdventureInMenu()" style="width:100%; padding:10px; background:#14F195; border:none; border-radius:5px; color:#000; font-weight:bold; cursor:pointer;">${userData.isAdventuring ? '탐험 중...' : '출발 (40 HG)'}</button>`;
+        const ranks = Object.values(snap.val() || {}).sort((a, b) => b.xp - a.xp).slice(0, 50); // 50명으로 확장
+        html = `<b style="color:#f1c40f;">🏆 TOP 50</b><div style="margin-top:5px; max-height:180px; overflow-y:auto;">` + 
+               ranks.map((u, i) => `<div style="font-size:11px; margin-bottom:3px; text-align:left;">${i+1}. ${u.id} (Lv.${u.lv})</div>`).join('') + `</div>`;
+    } 
+    else if (menuId === 'm-dungeon') {
+        html = `<b style="color:#14F195;">📍 탐험 구역 선택</b><br>
+                <div style="margin-top:10px; max-height:220px; overflow-y:auto; padding-right:5px;">`;
+
+        EXPLORE_ZONES.forEach((z, i) => {
+            const isLocked = userData.lv < z.minLv;
+            html += `
+                <div style="background:rgba(255,255,255,0.05); border:1px solid ${isLocked ? '#444' : '#9945FF'}; 
+                            padding:10px; border-radius:12px; margin-bottom:10px; opacity:${isLocked ? 0.6 : 1};">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:bold; color:${isLocked ? '#888' : '#fff'};">
+                            ${isLocked ? '🔒 ' : ''}${z.name} <small>(Lv.${z.minLv})</small>
+                        </span>
+                        ${!userData.isAdventuring && !isLocked ? 
+                            `<button onclick="startZoneExplore(${i})" style="font-size:10px; padding:4px 8px; cursor:pointer;">출발</button>` : ''}
+                    </div>
+                    <div style="font-size:9px; color:#aaa; margin-top:4px;">🎁 예상: 💎${z.shard[0]}~${z.shard[1]} | 🍪${z.food[0]}~${z.food[1]}</div>
+                </div>`;
+        });
+
+        if (userData.isAdventuring) {
+            const remaining = Math.max(0, Math.ceil((userData.adventureEndTime - Date.now()) / 1000 / 60));
+            html += `<div style="text-align:center; color:#f1c40f; font-size:11px; margin-top:10px;">
+                        🚶 현재 탐험 중... (${remaining}분 남음)
+                     </div>`;
+        }
+        html += `</div>`;
     }
+
     detailArea.innerHTML = html;
 }
 
@@ -365,13 +419,41 @@ function craftInMenu(type) {
     saveData(); showMenuDetail('m-equip');
 }
 
-function startAdventureInMenu() {
-    if (userData.isAdventuring) return;
-    if (userData.hg < 40) return alert("배고파요!");
-    userData.hg -= 40;
+// [3단계] 레벨별 탐험 구역 설정
+const EXPLORE_ZONES = [
+    { name: "평온한 밀가루 밭", minLv: 1, shard: [5, 15], food: [2, 5], time: 5 },   // 5분 소요
+    { name: "설탕 가루 숲", minLv: 30, shard: [50, 100], food: [5, 10], time: 15 }, // 15분 소요
+    { name: "초코칩 암석 지대", minLv: 80, shard: [200, 450], food: [10, 20], time: 30 }, // 30분 소요
+    { name: "솔라나 용암 동굴", minLv: 130, shard: [1000, 2500], food: [20, 40], time: 60 }, // 1시간
+    { name: "마지막 심판의 오븐", minLv: 180, shard: [5000, 12000], food: [50, 100], time: 120 } // 2시간
+];
+
+async function startZoneExplore(zoneIdx) {
+    const zone = EXPLORE_ZONES[zoneIdx];
+
+    // 1. 레벨 제한 확인
+    if (userData.lv < zone.minLv) {
+        return alert(`이곳은 레벨 ${zone.minLv} 이상부터 입장 가능합니다!`);
+    }
+    // 2. 이미 탐험 중인지 확인
+    if (userData.isAdventuring) {
+        return alert("이미 탐험 중인 캐릭터가 있습니다!");
+    }
+    // 3. 허기 확인 (탐험은 에너지가 많이 듭니다)
+    if (userData.hg < 30) {
+        return alert("배고파서 탐험을 떠날 수 없어요! (최소 30 HG 필요)");
+    }
+
+    // 탐험 설정
+    userData.hg -= 30;
     userData.isAdventuring = true;
-    userData.adventureEndTime = Date.now() + (5 * 60 * 1000);
-    saveData(); showMenuDetail('m-dungeon');
+    userData.adventureZoneIdx = zoneIdx; // 어떤 구역인지 기록
+    userData.adventureEndTime = Date.now() + (zone.time * 60 * 1000);
+    
+    alert(`[${zone.name}]으로 탐험을 떠났습니다! (${zone.time}분 소요)`);
+    saveData();
+    showMenuDetail('m-dungeon'); // 메뉴 새로고침
+    updateUI();
 }
 
 function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
@@ -451,9 +533,9 @@ function updateWeather() {
 
 async function updateRanking() {
     const snap = await db.ref('users').once('value');
-    const top10 = Object.values(snap.val() || {}).sort((a,b)=>b.xp-a.xp).slice(0, 10);
+    const top30 = Object.values(snap.val() || {}).sort((a,b)=>b.xp-a.xp).slice(0, 10);
     const el = document.getElementById('ranking-list');
-    if(el) el.innerText = top10.map((u,i)=>`${i+1}위: ${u.id}`).join(" | ");
+    if(el) el.innerText = top30.map((u,i)=>`${i+1}위: ${u.id}`).join(" | ");
 }
 
 function checkGroggy() { if (userData && userData.hg <= 0) isSleeping = true; }
