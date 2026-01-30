@@ -21,10 +21,41 @@ let userData = null;
 let lastClick = 0;
 let bubbleTimer = null;
 let isSleeping = false;
+
+function toggleSleep() {
+    const sleepBtn = document.getElementById('sleep-btn');
+    const characterImg = document.getElementById('character-img'); // 캐릭터 이미지 가져오기
+    
+    if (!isSleeping) {
+        // 1. 자러 갈 때
+        isSleeping = true;
+        
+        // 애니메이션 클래스 추가
+        characterImg.classList.add('sleeping');
+        
+        // 버튼 및 상태 변경
+        sleepBtn.innerHTML = "💤 깨우기";
+        console.log("캐릭터가 잠들었습니다.");
+    } else {
+        // 2. 깨어날 때
+        isSleeping = false;
+        
+        // 애니메이션 클래스 제거
+        characterImg.classList.remove('sleeping');
+        
+        // 버튼 및 상태 변경
+        sleepBtn.innerHTML = "⚡ 활동";
+        console.log("캐릭터가 깨어났습니다.");
+    }
+}
 let lastInteractionTime = Date.now();
 let crisisTimer = null;
 let comboCount = 0;
 let comboTimer = null;
+
+// [여기에 추가하세요!]
+let isBonusTime = false; 
+let bonusTimer = null;
 
 const GRADES = {
     Common: { name: "커먼", color: "#bdc3c7", power: 1.2, chance: 0.739 },
@@ -45,10 +76,34 @@ const TITLES = [
 ];
 
 const DIALOGUES = {
-    mzMeme: ["럭키비키잖아! 🍀", "주인님 폼 미쳤다..ㄷㄷ", "갓생 가보자고!", "오히려 좋아!", "꺾이지 않는 마음!"],
-    hungry: ["배고파요..", "꼬르륵..", "현기증 난단 말이에요"],
-    depressed: ["우울해.. 놀아줘요..", "기운이 하나도 없어..", "쿠키 인생 허무하다.."],
-    sleeping: ["Zzz..", "꿈속에서 굽는 중..", "5분만 더.."]
+    // 1. 기본/기분 좋을 때 (MZ 밈 + 츤데레 믹스)
+    mzMeme: [
+        "럭키비키잖아! 🍀", "주인님 폼 미쳤다..ㄷㄷ", "갓생 가보자고!", "오히려 좋아!", "중꺾마! 알죠?",
+        "이거 완전 에바인데? (긍정적)", "두쫀쿠 폼 미쳤다!", "알잘딱깔센하게 클릭해봐요.", "오늘 컨디션 완전 가보자고!", "주인님 T에요? 왜 이렇게 잘해?",
+        "완전 럭키비키! 내 소수점이 늘어났어!", "이게 바로 두쫀쿠의 스웩입니다.", "클릭 한 번에 감동 한 스푼..", "나 오늘 좀 킹받게 귀엽나?", "솔라나 가즈아! 내 반죽도 가즈아!",
+        "주인님 센스 미쳤다, 진짜.", "훗, 내가 바로 이 구역의 갓생 쿠키.", "맛있게 구워지는 중, 방해 금지!", "내 조각 모으는 당신, 갓생 인정.", "오늘따라 바삭바삭한 기분이네요!"
+    ],
+    // 2. 배고플 때 (Hungry 수치가 낮을 때)
+    hungry: [
+        "배고파요.. 반죽이 말라가..", "꼬르륵.. 나 현기증 난단 말이에요!", "101010.. 배고프다는 2진수 신호입니다.", "설탕 충전 시급! 당 떨어져요!", "먹이 안 주면 당신의 데이터를 갉아먹겠어.",
+        "쿠키가 배고프면 뭐가 되는지 알아요? 가루가 돼요.", "주인님만 입이에요? 나도 입 있다구!", "한 입만.. 딱 한 입만 🍪", "배꼽시계가 솔라나 네트워크보다 정확하네.", "나 쓰러지면 누가 랭킹 올려요?",
+        "반죽에 탄력이 없어지고 있어요..", "먹이 주기 버튼, 그거 장식 아니죠?", "아.. 고소한 냄새 환청이 들려.", "굶기면 나 진짜 가출할 거야!", "내 배에서 천둥 소리 나요, 들려요?",
+        "당분.. 당분이 부족해서 시스템 오류 날 것 같아.", "주인님 혼자 맛있는 거 먹지 마요!", "나 지금 초예민 상태인 거 안 보여요?", "반죽이 얇아지는 기분이야, 살려줘!", "꼬르륵 소리가 서버까지 들리겠네."
+    ],
+    // 3. 기분 나쁠 때 (Mood 수치가 낮을 때)
+    depressed: [
+        "우울해.. 놀아줘요..", "기운이 하나도 없어.. 쿠생 무상..", "쿠키 인생 허무하다.. 난 누굴 위해 구워지나..", "흥! 주인님 미워! 관심 좀 줘요!", "나랑 안 놀아주면 눅눅해질 테다.",
+        "지금 저기압이니까 건드리지 마요.", "세상은 왜 이렇게 삭막한 걸까?", "기분 별로야. 힐링 조각이 필요해.", "오늘따라 내 초코칩이 무겁게 느껴지네..", "나를 그냥 오븐 속에 방치하는 건가요?",
+        "기분이 바닥이에요. 조각 좀 줘봐요.", "주인님은 센스가 꽝이야! 내 맘도 모르고.", "흥, 저 구석에 가서 반죽이나 말려야지.", "아무것도 하기 싫어.. 클릭도 하지 마!", "내 표정 안 보여요? 완전 삐졌음!",
+        "관심 부족이야! 나도 사랑받고 싶다구.", "오늘 날씨.. 아니 데이터 흐름이 우울하네.", "나 삐뚤어질 거야, 말리지 마요.", "반죽이 눅눅해지는 기분이야.. 흑흑.", "주인님 바보! 멍청이! 해삼! 멍게!"
+    ],
+    // 4. 잠잘 때 (Sleeping 상태)
+    sleeping: [
+        "Zzz.. 초코칩 꿈 꾸는 중..", "꿈속에서 굽는 중.. 건드리지 마..", "5분만 더.. 오븐 온도가 딱 좋은데..", "음냐.. 주인님 바보.. (잠꼬대)", "쿨쿨.. 랭킹 1위는 내 거다..",
+        "Zzz.. 설탕 비가 내려요.. 맛있다..", "잠잘 땐 개도 안 건드린다는데..", "Zzz.. 나 깨우면 반죽 던질 거야..", "반죽이 쉬는 중입니다.. 쉿!", "꿈속에서 비트코인 샀어.. 대박..",
+        "Zzz.. 냠냠.. 마법의 가루..", "조용히 해줘요, 미인이 잠자는 중이니까.", "잠이 보약이야.. 쿨쿨..", "Zzz.. 나 버리면 안 돼.. (눈물 한 방울)", "오븐 속은 따뜻해.. 쿨쿨..",
+        "꿈속에서 레벨 999 찍었지롱!", "Zzz.. 🍪🍪🍪.. 쿠키 천국!", "좋은 꿈 꾸게 해줘서 고마워요.. 쿨쿨..", "Zzz.. 시스템 최적화 중.. 아니 자는 중..", "Zzz.. (완벽하게 숙면 중)"
+    ]
 };
 
 // --- [3. 핵심 공식 함수] ---
@@ -139,26 +194,44 @@ function loginSuccess() {
 // --- [5. 게임 루프] ---
 function gameLoop() {
     if (!userData) return;
+
+    // [수정] 보너스 타임 랜덤 발생 로직 (중괄호와 실행 함수 연결 수정)
+    if (!isBonusTime && Math.random() < 0.001) {
+        startBonusTime();
+    }
+    
     checkGroggy();
     checkFoodSupply();
 
     if (isSleeping) {
         userData.hg = Math.min(100, userData.hg + 0.3);
-        userData.mood = Math.min(100, userData.mood + 0.2);
+        // [수정] 자는 동안 무드가 올라가는 속도를 절반으로 줄임 (0.2 -> 0.1)
+        userData.mood = Math.min(100, userData.mood + 0.1); 
         createZzz();
         if(userData.hg >= 100) {
             isSleeping = false;
-            document.getElementById('character-img').classList.remove('sleeping');
-            document.getElementById('sleep-btn').innerText = "💤 잠자기";
+            const charImg = document.getElementById('character-img');
+            if(charImg) charImg.classList.remove('sleeping');
+            const sleepBtn = document.getElementById('sleep-btn');
+            if(sleepBtn) sleepBtn.innerText = "💤 잠자기";
         }
     } else {
-        userData.mood = Math.max(0, userData.mood - 0.05);
-    }
+        // [수정] 활동 중 무드 감소 폭을 2배로 증가 (0.05 -> 0.1)
+    userData.mood = Math.max(0, userData.mood - 0.1);
+}
 
+    // [수정된 부분] 12초마다 두쫀쿠가 상태에 맞는 대사를 무작위로 출력
     if (Date.now() - lastInteractionTime > 12000) {
-        let pool = isSleeping ? DIALOGUES.sleeping : (userData.hg < 30 ? DIALOGUES.hungry : (userData.mood < 30 ? DIALOGUES.depressed : DIALOGUES.mzMeme));
-        showBubble(pool[Math.floor(Math.random() * pool.length)]);
-        lastInteractionTime = Date.now();
+        // 상태별 리스트 설정
+        const state = isSleeping ? 'sleeping' : 
+                      (userData.hg < 30 ? 'hungry' : 
+                      (userData.mood < 30 ? 'depressed' : 'mzMeme'));
+        
+        const pool = DIALOGUES[state];
+        const randomQuote = pool[Math.floor(Math.random() * pool.length)];
+        
+        showBubble(randomQuote); // 말풍선 띄우기
+        lastInteractionTime = Date.now(); // 시간 초기화
     }
 
     if (userData.isAdventuring && Date.now() >= userData.adventureEndTime) {
@@ -168,19 +241,30 @@ function gameLoop() {
         alert(`🏹 탐험 완료! 조각 ${reward}개 획득!`);
         saveData();
     }
+    // [gameLoop 내부에 추가]
+    if (currentWeather === "🌧️ 비" || currentWeather === "🌫️ 안개") {
+    // 비나 안개 날씨에는 무드가 추가로 0.05 더 감소
+    userData.mood = Math.max(0, userData.mood - 0.05);
+    }
+    // gameLoop 내부
+    if (!isSleeping) {
+    // 기존 -0.05에서 -0.15 정도로 강화 (3배 더 빨리 우울해짐)
+    userData.mood = Math.max(0, userData.mood - 0.15); 
+    } 
+
+    // [gameLoop 내 하단에 추가]
+    if (!isSleeping && userData.hg < 30) {
+    // 배고픔이 30 미만이면 무드가 추가로 0.1 더 감소 (총 0.2 감소)
+    userData.mood = Math.max(0, userData.mood - 0.1);
+    }
     updateUI();
 }
 
 // --- [6. 메인 액션] ---
 function handleTap() {
-    console.log("클릭 감지됨!"); // 이 줄을 함수 맨 위에 추가하세요.
-
-    if (!userData) {
-        console.log("유저 데이터가 없음!");
-        return;
-    }
-    // 1. 가드 조건 확인
     if (!userData || isSleeping || userData.isAdventuring || crisisTimer) return;
+    
+    // 1. 배고픔 체크
     if (userData.hg <= 0) {
         showBubble("배고파서 기운이 없어요..");
         return;
@@ -189,53 +273,76 @@ function handleTap() {
     const stats = calculateStats();
     const now = Date.now();
     
-    // 매크로 방지용 쿨타임 (너무 짧으면 80 -> 50으로 줄여보세요)
+    // 쿨타임 체크
     if (now - lastClick < 50) return; 
     lastClick = now;
     lastInteractionTime = now;
 
-    // 2. 콤보 처리
-    comboCount++;
-    clearTimeout(comboTimer);
-    showComboUI(comboCount);
-    comboTimer = setTimeout(() => { 
+    let gainedXp = 0;
+    let isCritical = false;
+
+    // --- [경험치 계산 로직 수정] ---
+    if (isBonusTime) {
+        comboCount++;
+        clearTimeout(comboTimer);
+        showComboUI(comboCount);
+        comboTimer = setTimeout(() => { 
+            comboCount = 0; 
+            hideComboUI(); 
+        }, stats.comboTime);
+
+        isCritical = (Math.random() * 100) < (stats.luck * 2); 
+        // 보너스 타임: 탭 파워를 적극 반영 (최소 50~200 이상)
+        gainedXp = (stats.tapPower * 2) * (isCritical ? 5 : 2);
+        
+        createSparkle(); 
+    } else {
+        // 평상시: 레벨에 비례해서 경험치 획득량 대폭 상향 (최소 10점 이상)
+        gainedXp = 10 + (userData.lv * 2); 
         comboCount = 0; 
-        hideComboUI(); 
-    }, stats.comboTime);
+        hideComboUI();
+    }
 
-    // 3. 경험치 계산 (핵심!)
-    let isCritical = (Math.random() * 100) < stats.luck;
-    // tapPower가 너무 낮으면 티가 안 날 수 있으니 최소값을 보장해봅시다.
-    let gainedXp = Math.max(10, stats.tapPower) * (isCritical ? 3 : 1);
+    // --- [데이터 반영] ---
+    // 숫자로 확실히 변환하고 경험치 추가
+    userData.xp = (Number(userData.xp) || 0) + gainedXp; 
+    
+    // 허기 소모
+    const hgLoss = isBonusTime ? (stats.hgDrain * 0.5) : stats.hgDrain;
+    userData.hg = Math.max(0, userData.hg - hgLoss);
+    
+    userData.mood = Math.min(100, userData.mood + 0.1);
 
-    // 실제 데이터에 더하기
-    userData.xp += gainedXp;
-    userData.hg = Math.max(0, userData.hg - stats.hgDrain);
-    userData.mood = Math.min(100, userData.mood + 0.2);
+    // 로그 확인 (F12 콘솔에서 상승폭 확인용)
+    console.log(`획득 XP: ${gainedXp}, 현재 XP: ${userData.xp.toFixed(2)}`);
 
-    // 4. 즉시 반영 (이 순서가 중요합니다)
-    checkLevelUp(); // 레벨업 먼저 확인
-    updateUI();     // 그다음 화면 갱신
-    saveData();     // 마지막으로 DB 저장 (비동기)
+    // 저장 및 UI 갱신
+    checkLevelUp();
+    updateUI();
+    saveData();
 
-    // 5. 시각 효과
+    // 캐릭터 흔들기 효과
     const img = document.getElementById('character-img');
     if (img) {
-        img.style.transform = `scale(${isCritical ? 1.2 : 1.1}) rotate(${Math.random() * 10 - 5}deg)`;
+        const scale = isBonusTime ? (isCritical ? 1.4 : 1.2) : 1.1;
+        img.style.transform = `scale(${scale}) rotate(${Math.random() * 10 - 5}deg)`;
         setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 100);
     }
     
-    if (isCritical) {
+    if (isBonusTime && isCritical) {
         showBubble("💥 CRITICAL!!");
         triggerCriticalEffect();
     }
 }
 
 function checkLevelUp() {
-    let nextXP = Math.floor(Math.pow(userData.lv, 2.8) * 300 * 1.5);
+    // 위와 동일한 공식 적용
+    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.5) * 450 * 1.2);
+    let nextXP = getLevelXP(userData.lv);
+
     if (userData.xp >= nextXP) {
         userData.lv++;
-        userData.shards += (userData.lv * 100); 
+        userData.shards += (userData.lv * 150); 
         triggerLevelUpEffect();
         showBubble(`🎉 LEVEL UP! (Lv.${userData.lv})`);
         saveData();
@@ -246,7 +353,23 @@ function handleFeed() {
     if (userData.foodCount > 0 && userData.hg < 100) {
         userData.foodCount--;
         userData.hg = Math.min(100, userData.hg + 30);
-        userData.mood = Math.min(100, userData.mood + 10);
+        // --- [무드 상승 로직 까다롭게 변경] ---
+    // 1. 기본적으로 40%의 확률로만 기분이 좋아짐 (나머지 60%는 클릭해도 무드 안 오름)
+    if (Math.random() < 0.4) {
+        let moodBoost = 0.1; // 기본 상승치
+
+        // 2. 날씨가 '비'나 '안개'일 때는 기분이 잘 안 올라감 (상승치 절반)
+        if (currentWeather === "🌧️ 비" || currentWeather === "🌫️ 안개") {
+            moodBoost *= 0.5;
+        }
+
+        // 3. 배가 든든할 때(70 이상)는 기분이 더 잘 올라감 (보너스)
+        if (userData.hg > 70) {
+            moodBoost += 0.05;
+        }
+
+        userData.mood = Math.min(100, userData.mood + moodBoost);
+    }
         showBubble("냠냠! 맛있다 🍪");
         saveData();
         updateUI();
@@ -276,31 +399,34 @@ function toggleSleep() {
 function updateUI() {
     if (!userData) return;
 
-    // --- [상태 체크 로직 추가] ---
+    // 1. 상단 상태 태그 업데이트
     const statusTag = document.getElementById('status-tag');
     let statusText = "● 활동중";
-    let statusColor = "#14F195"; // 기본 민트색
+    let statusColor = "#14F195"; 
 
-    if (userData.hg <= 0) {
+    if (isBonusTime) {
+        statusText = "🔥 BONUS TIME!!";
+        statusColor = "#ff4757"; 
+    } else if (userData.hg <= 0) {
         statusText = "● 그로기 (탈진)";
-        statusColor = "#ff4757"; // 빨간색
+        statusColor = "#ea14d1ae"; 
     } else if (isSleeping) {
         statusText = "● 휴식 중";
-        statusColor = "#3498db"; // 파란색
+        statusColor = "#3498db"; 
     } else if (userData.isAdventuring) {
         statusText = "● 탐험 중";
-        statusColor = "#f1c40f"; // 노란색
+        statusColor = "#f1c40f"; 
     }
 
     if (statusTag) {
         statusTag.innerText = statusText;
         statusTag.style.color = statusColor;
         statusTag.style.border = `1px solid ${statusColor}`;
+        statusTag.style.animation = isBonusTime ? "blink 0.5s infinite" : "none";
     }
-    // --- [상태 체크 로직 끝] ---
 
-    // 1. 경험치 계산 (공식 최적화)
-    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.8) * 300 * 1.5);
+    // 2. 경험치 바 계산
+    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.5) * 450 * 1.2);
     const prevXP = userData.lv === 1 ? 0 : getLevelXP(userData.lv - 1);
     const nextXP = getLevelXP(userData.lv);
     
@@ -310,48 +436,71 @@ function updateUI() {
     let xpPercent = (currentXPInThisLevel / requiredXPInThisLevel) * 100;
     xpPercent = Math.min(100, Math.max(0, xpPercent));
 
-    // 2. DOM 반영 (정확한 ID 참조)
     const expBar = document.getElementById('exp-bar');
     const expLabel = document.getElementById('exp-label');
     
-    if (expBar) {
-        expBar.style.width = xpPercent + "%";
-    }
+    if (expBar) expBar.style.width = xpPercent + "%";
+    
+    // [수정] 소수점을 9자리까지 표시하여 정밀도 향상
     if (expLabel) {
-        // 소수점 3자리까지 표시해서 아주 미세하게 움직이는 것도 보이게 함
-        expLabel.innerText = xpPercent.toFixed(3) + "%";
+        expLabel.innerText = xpPercent.toFixed(9) + "%";
+        // 글자가 너무 길어지면 폰트 사이즈를 살짝 줄이는 센스!
+        expLabel.style.fontSize = "10px"; 
     }
 
-    // 3. 기타 상태바 (허기, 기분)
-    document.getElementById('hungry-bar').style.width = userData.hg + "%";
-    document.getElementById('hg-label').innerText = `${Math.floor(userData.hg)} HG`;
+   // 3. 자원 수치 업데이트 (ID 매칭 및 텍스트 갱신)
+    const hungryBar = document.getElementById('hungry-bar');
+    const hungryVal = document.getElementById('hungry-val'); // HTML의 숫자 표시 ID
+    const moodBar = document.getElementById('mood-bar');
+    const moodVal = document.getElementById('mood-val');     // HTML의 숫자 표시 ID
 
-    document.getElementById('mood-bar').style.width = userData.mood + "%";
-    document.getElementById('mood-label').innerText = `${Math.floor(userData.mood)} MOOD`;
+    // 배고픔(HG) 업데이트
+    if (hungryBar) hungryBar.style.width = userData.hg + "%";
+    if (hungryVal) hungryVal.innerText = `${Math.floor(userData.hg)}/100`;
 
-    document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
-    document.getElementById('shard-val').innerText = Math.floor(userData.shards).toLocaleString();
+    // 무드(MOOD) 업데이트
+    if (moodBar) moodBar.style.width = userData.mood + "%";
+    if (moodVal) moodVal.innerText = `${Math.floor(userData.mood)}/100`;
 
+    // 기타 자원
+    if (document.getElementById('food-val')) document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
+    if (document.getElementById('shard-val')) document.getElementById('shard-val').innerText = Math.floor(userData.shards).toLocaleString();
+    // 4. 이름 및 칭호 표시 (innerHTML 사용 부분)
     const title = TITLES.filter(t => userData.lv >= t.lv).pop();
-    document.getElementById('user-title').innerText = `[${title.name}] Lv.${userData.lv}`;
-}
+    let nameDisplay = `[${title.name}] ${userData.id}`;
 
+    if (userData.isDonator) {
+        nameDisplay = `<span style="color:#f1c40f; font-weight:bold;">[💎명예]</span> ` + nameDisplay;
+    }
+
+    const userTitleEl = document.getElementById('user-title');
+    if (userTitleEl) {
+        userTitleEl.innerHTML = nameDisplay; // <-- 질문하신 코드가 바로 여기 들어갑니다!
+    }
+}
+   
 function openModal() {
     const modal = document.getElementById('game-modal');
     const content = document.getElementById('modal-tab-content');
     modal.classList.add('active');
     
+    // 이 안에 기부 버튼 코드가 들어있어야 합니다.
     content.innerHTML = `
         <div style="text-align:center; margin-bottom:15px;"><h2 style="color:#14F195; margin:0; font-size:18px;">📜 전체 메뉴</h2></div>
-        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;">
-            <div onclick="showMenuDetail('m-equip')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">⚔️ 장비</div>
-            <div onclick="showMenuDetail('m-dungeon')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏹 탐험</div>
-            <div onclick="showMenuDetail('m-rank')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏆 순위</div>
-            <div onclick="showMenuDetail('m-boss')" style="background:#444; color:#fff; border:1px solid #ff4757; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">👹 보스</div>
+        
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-bottom:15px;">
+            <div onclick="showMenuDetail('m-equip')" style="background:#333; color:#fff; border:1px solid #9945FF; height:45px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">⚔️ 장비/강화</div>
+            <div onclick="showMenuDetail('m-dungeon')" style="background:#333; color:#fff; border:1px solid #9945FF; height:45px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏹 구역탐험</div>
+            <div onclick="showMenuDetail('m-rank')" style="background:#333; color:#fff; border:1px solid #9945FF; height:45px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏆 랭킹순위</div>
+            <div onclick="showMenuDetail('m-boss')" style="background:#444; color:#fff; border:1px solid #ff4757; height:45px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">👹 보스레이드</div>
         </div>
+        
+        <div onclick="donateShards()" style="background:linear-gradient(45deg, #f1c40f, #d4af37); color:#000; border:1px solid #fff; height:40px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer; font-weight:bold; margin-bottom:15px; box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">💖 10만 조각 기부 (명예 획득)</div>
+
         <div id="menu-detail-area" style="min-height:160px; background:rgba(0,0,0,0.3); border-radius:10px; padding:10px; border:1px solid #333;">
             <p style="text-align:center; color:#666; font-size:11px; margin-top:60px;">메뉴를 선택하세요.</p>
         </div>
+        
         <button onclick="closeModal()" style="background:#FF4757; width:100%; margin-top:15px; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold; cursor:pointer;">닫기</button>
     `;
 }
@@ -501,14 +650,29 @@ function upgradeItem(type) {
         saveData(); showMenuDetail('m-equip'); return;
     }
 
-    // 2. 장비가 있는 경우: 강화 진행
-    const upgradeCost = (userData.inventory[type].level + 1) * 200; // 단계별 비용 상승
-    if (userData.shards < upgradeCost) return alert(`강화비 ${upgradeCost}💎이 부족합니다!`);
+    // ---------------- [ 여기서부터 교체 시작 ] ----------------
     
+    // [수정된 매운맛 비용 공식]
+    const gradeMultipliers = { 
+        Common: 1, Uncommon: 2, Rare: 5, Epic: 15, Legendary: 50 
+    };
+
+    const baseCost = gradeMultipliers[item.grade] * 1000;
+    const levelCost = Math.pow(item.level + 1, 2) * 500;
+    const upgradeCost = baseCost + levelCost;
+
+    if (userData.shards < upgradeCost) {
+        return alert(`강화비 ${upgradeCost.toLocaleString()}💎이 부족합니다!`);
+    }
+    
+    // 조각 차감
     userData.shards -= upgradeCost;
     
-    // 강화 성공 확률 (단계가 높을수록 낮아짐)
-    const successChance = 0.8 - (item.level * 0.05); 
+    // [수정된 매운맛 확률 공식]
+    const gradeSuccessBase = { 
+        Common: 0.8, Uncommon: 0.7, Rare: 0.5, Epic: 0.3, Legendary: 0.1 
+    };
+    const successChance = gradeSuccessBase[item.grade] - (item.level * 0.02);
     const rand = Math.random();
 
     if (rand < successChance) {
@@ -569,28 +733,46 @@ async function startZoneExplore(zoneIdx) {
     if (userData.hg < 30) {
         return alert("배고파서 탐험을 떠날 수 없어요! (최소 30 HG 필요)");
     }
+    // --- [여기를 추가하세요: 4. 입장료 확인 및 차감] ---
+    // 구역 인덱스에 따라 입장료가 비싸지게 설정 (예: 1번구역 500, 2번구역 1500...)
+    const entryFee = (zoneIdx + 1) * 500; 
+    
+    if (userData.shards < entryFee) {
+        return alert(`입장료 ${entryFee.toLocaleString()}💎이 부족합니다!`);
+    }
+    userData.shards -= entryFee; // 입장료 차감
+    // --------------------------------------------------
 
     // 탐험 설정
     userData.hg -= 30;
     userData.isAdventuring = true;
     userData.adventureZoneIdx = zoneIdx; // 어떤 구역인지 기록
     userData.adventureEndTime = Date.now() + (zone.time * 60 * 1000);
+    // 알림창에도 입장료 정보를 넣어주면 더 친절합니다.
+    alert(`[${zone.name}] 입장료 ${entryFee}💎 지불! 탐험을 시작합니다.`);
     
-    alert(`[${zone.name}]으로 탐험을 떠났습니다! (${zone.time}분 소요)`);
     saveData();
-    showMenuDetail('m-dungeon'); // 메뉴 새로고침
+    showMenuDetail('m-dungeon'); 
     updateUI();
 }
 
 function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
 function closeModal() { document.getElementById('game-modal').classList.remove('active'); }
 
-function showBubble(msg) {
-    const b = document.getElementById('speech-bubble');
-    if(!b) return;
-    b.innerText = msg; b.style.display = 'block';
-    if(bubbleTimer) clearTimeout(bubbleTimer);
-    bubbleTimer = setTimeout(() => b.style.display = 'none', 2500);
+function showBubble(text) {
+    const bubble = document.getElementById('speech-bubble');
+    const bubbleText = document.getElementById('bubble-text');
+    
+    if (!bubble || !bubbleText) return;
+
+    bubbleText.innerText = text;
+    // 'block'이 아니라 'flex'여야 세로 중앙 정렬이 작동합니다!
+    bubble.style.display = 'flex'; 
+
+    // 3초 뒤에 사라지게 설정
+    setTimeout(() => {
+        bubble.style.display = 'none';
+    }, 3000);
 }
 
 function showComboUI(c) {
@@ -640,21 +822,43 @@ function triggerCriticalEffect() {
 
 function updateWeather() {
     const container = document.getElementById('character-area');
-    const weatherList = ["☀️ 맑음", "🌧️ 비", "❄️ 눈"];
+    const weatherList = ["☀️ 맑음", "🌧️ 비", "❄️ 눈", "🍃 바람", "🌫️ 안개"];
     const current = weatherList[Math.floor(Math.random() * weatherList.length)];
-    document.querySelectorAll('.weather-particle').forEach(p => p.remove());
-    if (current === "🌧️ 비" || current === "❄️ 눈") {
-        const emoji = current === "🌧️ 비" ? "💧" : "❄️";
-        for (let i = 0; i < 20; i++) {
+    
+    // 기존 입자 및 효과 제거
+    document.querySelectorAll('.weather-particle, .fog-layer').forEach(p => p.remove());
+    container.style.filter = "none"; // 필터 초기화
+
+    if (current === "🌧️ 비" || current === "❄️ 눈" || current === "🍃 바람") {
+        const emoji = current === "🌧️ 비" ? "💧" : (current === "❄️ 눈" ? "❄️" : "🍃");
+        const count = current === "🍃 바람" ? 10 : 20; // 바람은 조금만
+
+        for (let i = 0; i < count; i++) {
             const p = document.createElement('div');
             p.className = 'weather-particle';
             p.innerText = emoji;
             p.style.left = Math.random() * 100 + "%";
-            p.style.animationDuration = (Math.random() * 2 + 1) + "s";
+            p.style.fontSize = (Math.random() * 10 + 10) + "px";
+            p.style.animationDuration = (Math.random() * 2 + (current === "🍃 바람" ? 3 : 2)) + "s";
             p.style.animationDelay = Math.random() * 2 + "s";
+            
+            // 바람일 때는 사선으로 날아가도록 클래스 추가
+            if (current === "🍃 바람") p.classList.add('windy');
+            
             container.appendChild(p);
         }
+    } else if (current === "🌫️ 안개") {
+        // 안개 효과: 반투명한 레이어 추가 및 캐릭터 살짝 흐리게
+        const fog = document.createElement('div');
+        fog.className = 'fog-layer';
+        container.appendChild(fog);
+        container.style.filter = "contrast(90%) brightness(110%)";
+    } else if (current === "☀️ 맑음") {
+        // 맑을 때는 캐릭터에 광원 효과 (필터)
+        container.style.filter = "saturate(1.2) brightness(1.1)";
     }
+    
+    console.log("현재 날씨:", current);
 }
 
 async function updateRanking() {
@@ -679,3 +883,72 @@ function checkFoodSupply() {
         saveData(); updateUI();
     }
 }
+
+async function donateShards() {
+    const DONATION_AMOUNT = 100000; // 기부 금액 (10만 조각)
+
+    if (userData.shards < DONATION_AMOUNT) {
+        return alert(`기부하려면 ${DONATION_AMOUNT.toLocaleString()}💎이 필요합니다. 조금 더 모아주세요!`);
+    }
+
+    if (confirm(`정말로 ${DONATION_AMOUNT.toLocaleString()}💎을 기부하여 명예를 얻으시겠습니까?\n(영구적인 전용 태그가 부여됩니다!)`)) {
+        userData.shards -= DONATION_AMOUNT;
+        userData.isDonator = true; // 기부자 상태 기록
+        
+        showBubble("💖 대량 기부! 당신은 이 시대의 성자입니다!");
+        alert("✨ 기부가 완료되었습니다! 이제 이름 옆에 [💎명예] 태그가 붙습니다.");
+        
+        saveData();
+        updateUI();
+        if (document.getElementById('game-modal').classList.contains('active')) {
+            showMenuDetail('m-boss'); // 또는 적절한 메뉴 새로고침
+        }
+    }
+}
+
+// --- [날씨 시스템] ---
+let currentWeather = "☀️ 맑음";
+
+function updateWeather() {
+    const container = document.getElementById('character-area');
+    const weatherTag = document.getElementById('weather-tag');
+    const weatherList = ["☀️ 맑음", "🌧️ 비", "❄️ 눈", "🍃 바람", "🌫️ 안개"];
+    
+    // 무작위 날씨 선택
+    currentWeather = weatherList[Math.floor(Math.random() * weatherList.length)];
+    
+    // 1. UI 업데이트
+    if (weatherTag) weatherTag.innerText = currentWeather;
+
+    // 2. 기존 효과 제거
+    document.querySelectorAll('.weather-particle, .fog-layer').forEach(p => p.remove());
+    container.style.filter = "none";
+
+    // 3. 날씨별 시각 효과 생성
+    if (currentWeather === "🌧️ 비" || currentWeather === "❄️ 눈" || currentWeather === "🍃 바람") {
+        const emoji = currentWeather === "🌧️ 비" ? "💧" : (currentWeather === "❄️ 눈" ? "❄️" : "🍃");
+        
+        for (let i = 0; i < 20; i++) {
+            const p = document.createElement('div');
+            p.className = 'weather-particle' + (currentWeather === "🍃 바람" ? " windy" : "");
+            p.innerText = emoji;
+            p.style.left = Math.random() * 100 + "%";
+            p.style.fontSize = "14px";
+            p.style.animationDuration = (Math.random() * 2 + 2) + "s";
+            p.style.animationDelay = Math.random() * 3 + "s";
+            container.appendChild(p);
+        }
+    } else if (currentWeather === "🌫️ 안개") {
+        const fog = document.createElement('div');
+        fog.className = 'fog-layer';
+        container.appendChild(fog);
+    } else if (currentWeather === "☀️ 맑음") {
+        container.style.filter = "brightness(1.1) saturate(1.1)";
+    }
+}
+
+// 🕒 30초마다 날씨 변경 (테스트를 위해 짧게 설정, 나중에 60000으로 늘리셔도 돼요!)
+setInterval(updateWeather, 30000);
+
+// 🚀 게임 시작 시 즉시 실행 (가장 중요!)
+setTimeout(updateWeather, 1000);

@@ -106,16 +106,50 @@ body {
 /* 4. 전광판: 캐릭터 영역 내부 상단에 고정 */
 #rank-ticker {
     position: absolute;
-    top: 0;
-    width: 100%;
-    height: 35px;
-    background: rgba(0, 0, 0, 0.5);
+    top: 15px; /* 상단 UI와 살짝 거리를 둠 */
+    left: 10px; /* 좌우 여백 */
+    right: 10px;
+    width: calc(100% - 20px); /* 화면 폭에 맞춤 */
+    height: 38px; /* 높이를 살짝 키워 여유 공간 확보 */
+    /* 1. 배경 가시성 개선: 약간 투명한 네이비/블랙 혼합 */
+    background: rgba(10, 10, 15, 0.85);
+    /* 2. 테두리: 솔라나 민트색을 더 밝게 */
     border: 1px solid #14F195;
-    border-radius: 8px;
+    border-radius: 10px;
     z-index: 10;
+    overflow: hidden; /* 텍스트가 밖으로 나가지 않게 함 */
+    display: flex;
+    align-items: center;
+    /* 3. 외부 광채: 전광판 자체가 빛나는 효과 */
+    box-shadow: 0 0 15px rgba(20, 241, 149, 0.3), inset 0 0 5px rgba(20, 241, 149, 0.1);
     
-    /* [핵심 추가] 영역을 벗어나는 텍스트를 숨김 */
-    overflow: hidden; 
+    z-index: 10;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+/* 전광판 글자가 실제로 흐르게 하고 싶다면 이 클래스도 CSS에 추가하세요 */
+.ticker-text {
+    white-space: nowrap;
+    position: absolute;
+    padding-left: 100%;
+    animation: ticker-scroll 20s linear infinite; /* 속도를 조금 늦춰 읽기 편하게 */
+    /* 4. 글자 스타일: 민트색 원색 + 강한 가독성 */
+    color: #8dc4b7; 
+    font-weight: 800; /* 더 두껍게 */
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif; /* 깔끔한 폰트 권장 */
+    
+    /* 5. 글자 광채(Glow): 어두운 곳에서도 글자가 튀어나와 보임 */
+    text-shadow: 0 0 8px rgba(20, 241, 149, 0.8);
+    letter-spacing: 0.5px;
+}
+
+/* 🎬 흐르는 애니메이션 */
+@keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-250%); } /* 내용이 길면 숫자를 늘려주세요 */
 }
 
 /* 1. 메인 스크린 구조: 세로로 나열하고 간격을 자동으로 배분 */
@@ -593,10 +627,123 @@ body {
 .weather-particle {
     position: absolute;
     top: -20px;
-    z-index: 1;
+    z-index: 1; /* 전광판(10)과 캐릭터(5)보다 뒤로 보냄 */
     pointer-events: none;
     opacity: 0.6;
+    user-select: none;
     animation: weather-fall linear infinite;
+}
+
+/* 기본 낙하 애니메이션 */
+@keyframes weather-fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(600px) rotate(360deg); opacity: 0; }
+}
+
+/* 🍃 바람: 사선으로 날아가는 애니메이션 */
+@keyframes wind-fly {
+    0% { transform: translate(-100px, 0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.5; }
+    100% { transform: translate(400px, 400px) rotate(720deg); opacity: 0; }
+}
+
+.weather-particle.windy {
+    animation: wind-fly linear infinite;
+}
+
+/* 🌫️ 안개 레이어: 더 입체적이고 역동적인 효과 */
+/* 🌫️ 1. 배경 깊숙한 곳의 거대 안개 (천천히 움직임) */
+.fog-layer {
+    position: absolute;
+    inset: 0;
+    width: 300%; /* 더 넓게 설정 */
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(200,220,255,0.2) 0%, transparent 60%);
+    filter: blur(50px); /* 블러 대폭 강화 */
+    opacity: 0.6;
+    mix-blend-mode: screen; /* 빛이 겹치는 효과 */
+    pointer-events: none;
+    z-index: 1;
+    animation: fog-drift-main 30s linear infinite;
+}
+
+/* 🌫️ 안개 공통 설정 */
+.fog-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 300%; /* 움직임 반경을 위해 넓게 설정 */
+    height: 100%;
+    pointer-events: none;
+    will-change: transform; /* 성능 최적화 */
+}
+
+/* 🌑 뒷면 안개: 캐릭터 뒤에서 새어나오는 솔라나 광원 효과 */
+.shadow-fog {
+    background: 
+        radial-gradient(circle at 50% 50%, rgba(153, 69, 255, 0.2) 0%, transparent 70%),
+        radial-gradient(circle at 20% 40%, rgba(20, 241, 149, 0.1) 0%, transparent 50%);
+    filter: blur(50px);
+    z-index: 1;
+    animation: fog-drift-slow 40s linear infinite;
+}
+
+/* 🌫️ 안개 레이어 공통 스타일 */
+.fog-layer {
+    position: absolute;
+    top: -25%;
+    left: -25%;
+    width: 150%;
+    height: 150%;
+    pointer-events: none;
+    will-change: transform;
+}
+
+/* 🌑 거대한 배경 안개: 솔라나 퍼플 & 민트 혼합 */
+.shadow-fog {
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(153, 69, 255, 0.25) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(20, 241, 149, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(10, 10, 10, 0.8) 0%, transparent 100%);
+    filter: blur(80px);
+    z-index: 0;
+    animation: fog-drift-slow 30s ease-in-out infinite alternate;
+}
+
+/* ☁️ 전면 안개: 캐릭터 앞을 흐르는 몽환적인 화이트 구름 */
+.front-fog {
+    background: 
+        radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 30%);
+    filter: blur(40px);
+    z-index: 20;
+    mix-blend-mode: overlay;
+    animation: fog-drift-fast 15s linear infinite;
+}
+
+/* 🎬 애니메이션 */
+@keyframes fog-drift-slow {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(5%, 5%) scale(1.1); }
+}
+
+@keyframes fog-drift-fast {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-15%); }
+}
+
+/* 🍪 캐릭터 숨쉬기 애니메이션 (추가) */
+#character-img {
+    animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
 }
 
 @keyframes walk-motion {
@@ -609,4 +756,26 @@ body {
     transition: transform 0.1s;
     user-select: none;
     -webkit-tap-highlight-color: transparent; /* 모바일 터치 시 파란 박스 제거 */
+}
+
+/* 💤 잠자는 애니메이션: 아주 천천히 커졌다 작아짐 */
+@keyframes sleep-breathe {
+    0%, 100% { transform: scale(1); filter: brightness(0.7) drop-shadow(0 5px 15px rgba(0,0,0,0.5)); }
+    50% { transform: scale(1.03); filter: brightness(0.5) drop-shadow(0 10px 20px rgba(0,0,0,0.7)); }
+}
+
+/* 캐릭터가 잘 때 적용될 클래스 */
+.sleeping {
+    animation: sleep-breathe 4s ease-in-out infinite !important;
+    transition: all 1s;
+}
+
+/* 깨어있을 때 기본 숨쉬기 (선택 사항) */
+.active-breathe {
+    animation: active-breathe 2s ease-in-out infinite;
+}
+
+@keyframes active-breathe {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
 }
