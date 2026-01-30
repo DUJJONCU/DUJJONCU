@@ -114,6 +114,12 @@ async function handleAuth() {
 
 function repairData() {
     if (!userData.inventory) userData.inventory = { weapon: null, armor: null, boots: null, helmet: null, accessory: null };
+    // 각 장비에 level이 없으면 0으로 초기화
+    for (let key in userData.inventory) {
+        if (userData.inventory[key] && userData.inventory[key].level === undefined) {
+            userData.inventory[key].level = 0;
+        }
+    }
     if (userData.inventory.helmet === undefined) userData.inventory.helmet = null;
     if (userData.inventory.boots === undefined) userData.inventory.boots = null;
     if (!userData.collections) userData.collections = { items: [], titles: [] };
@@ -341,6 +347,7 @@ function openModal() {
             <div onclick="showMenuDetail('m-equip')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">⚔️ 장비</div>
             <div onclick="showMenuDetail('m-dungeon')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏹 탐험</div>
             <div onclick="showMenuDetail('m-rank')" style="background:#333; color:#fff; border:1px solid #9945FF; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">🏆 순위</div>
+            <div onclick="showMenuDetail('m-boss')" style="background:#444; color:#fff; border:1px solid #ff4757; height:50px; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:11px; cursor:pointer;">👹 보스</div>
         </div>
         <div id="menu-detail-area" style="min-height:160px; background:rgba(0,0,0,0.3); border-radius:10px; padding:10px; border:1px solid #333;">
             <p style="text-align:center; color:#666; font-size:11px; margin-top:60px;">메뉴를 선택하세요.</p>
@@ -358,13 +365,16 @@ async function showMenuDetail(menuId) {
         html = `<b style="color:#9945FF; font-size:12px;">📦 장비 제작 (500💎)</b><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; max-height:150px; overflow-y:auto;">`;
         for (let key in parts) {
             const item = userData.inventory[key];
+            const levelText = item ? ` (+${item.level})` : "";
             const gName = item ? GRADES[item.grade].name : "미착용";
             const gColor = item ? GRADES[item.grade].color : "#555";
-            html += `<div style="background:#222; padding:8px; border-radius:8px; border:1px solid ${gColor}; text-align:center;">
-                        <span style="font-size:9px; color:#aaa;">${parts[key]}</span><br>
-                        <b style="color:${gColor}; font-size:10px;">${gName}</b>
-                        <button onclick="craftInMenu('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">제작</button>
-                    </div>`;
+            html += `<div style="...">
+            <span style="font-size:9px; color:#aaa;">${parts[key]}</span><br>
+            <b style="color:${gColor}; font-size:10px;">${gName}${levelText}</b>
+            <button onclick="upgradeItem('${key}')" style="margin-top:5px; font-size:9px; width:100%; cursor:pointer;">
+                ${item ? '강화' : '제작'}
+            </button>
+         </div>`;
         }
         html += `</div>`;
     } 
@@ -399,24 +409,103 @@ async function showMenuDetail(menuId) {
             const remaining = Math.max(0, Math.ceil((userData.adventureEndTime - Date.now()) / 1000 / 60));
             html += `<div style="text-align:center; color:#f1c40f; font-size:11px; margin-top:10px;">
                         🚶 현재 탐험 중... (${remaining}분 남음)
-                     </div>`;
+                        </div>`;
         }
         html += `</div>`;
     }
+    else if (menuId === 'm-boss') {
+    html = `<b style="color:#ff4757;">👹 거대 보스 레이드</b><br>
+            <div style="margin-top:10px;">`;
+    
+    for (let key in BOSSES) {
+        const b = BOSSES[key];
+        const isLocked = userData.lv < b.minLv;
+        html += `
+            <div style="background:rgba(255,0,0,0.05); border:1px solid ${isLocked ? '#444' : '#ff4757'}; padding:12px; border-radius:12px; margin-bottom:10px;">
+                <div style="font-size:12px; font-weight:bold;">${isLocked ? '🔒 ' : ''}${b.name}</div>
+                <div style="font-size:10px; color:#aaa; margin:5px 0;">필요 레벨: ${b.minLv} | 보상: 💎${b.rewardShard.toLocaleString()}</div>
+                ${!isLocked ? `<button onclick="fightBoss('${key}')" style="width:100%; padding:5px; background:#ff4757; border:none; color:white; border-radius:5px; cursor:pointer;">도전하기</button>` : ''}
+            </div>`;
+    }
+    html += `</div>`;
+}
 
     detailArea.innerHTML = html;
 }
 
+async function fightBoss(type) {
+    const boss = BOSSES[type];
+    if (userData.hg < 50) return alert("전투를 하기엔 너무 배고픕니다! (최소 50 HG 필요)");
+    
+    userData.hg -= 50;
+    alert(`${boss.name}과의 전투를 시작합니다!`);
+    
+    // 확률적 승리 (레벨이 높을수록 유리하게 설정 가능)
+    const success = Math.random() > 0.3; // 70% 확률로 승리
+    
+    if (success) {
+        userData.shards += boss.rewardShard;
+        alert(`🎉 처치 성공! 보상으로 조각 ${boss.rewardShard}개를 얻었습니다!`);
+    } else {
+        alert("🛑 아쉽게 패배했습니다... 좀 더 수련해서 오세요!");
+    }
+    
+    saveData();
+    updateUI();
+    showMenuDetail('m-boss');
+}
+
 // --- [8. 보조 함수들] ---
-function craftInMenu(type) {
-    if (userData.shards < 500) return alert("조각이 부족합니다!");
-    userData.shards -= 500;
+function upgradeItem(type) {
+    let item = userData.inventory[type];
+    
+    // 1. 장비가 아예 없는 경우: 새로 제작 (커먼 등급부터 시작)
+    if (!item) {
+        if (userData.shards < 500) return alert("제작비 500💎이 부족합니다!");
+        userData.shards -= 500;
+        userData.inventory[type] = { grade: "Common", level: 0, power: GRADES.Common.power };
+        alert(`🔨 [커먼] ${type}을(를) 제작했습니다!`);
+        saveData(); showMenuDetail('m-equip'); return;
+    }
+
+    // 2. 장비가 있는 경우: 강화 진행
+    const upgradeCost = (userData.inventory[type].level + 1) * 200; // 단계별 비용 상승
+    if (userData.shards < upgradeCost) return alert(`강화비 ${upgradeCost}💎이 부족합니다!`);
+    
+    userData.shards -= upgradeCost;
+    
+    // 강화 성공 확률 (단계가 높을수록 낮아짐)
+    const successChance = 0.8 - (item.level * 0.05); 
     const rand = Math.random();
-    let grade = "Common", cum = 0;
-    for (let g in GRADES) { cum += GRADES[g].chance; if (rand <= cum) { grade = g; break; } }
-    userData.inventory[type] = { grade, power: GRADES[grade].power };
-    alert(`🔨 [${GRADES[grade].name}] ${type} 제작 완료!`);
-    saveData(); showMenuDetail('m-equip');
+
+    if (rand < successChance) {
+        // 성공!
+        item.level++;
+        if (item.level > 10) {
+            // 10강 성공 시 다음 등급 승급
+            const gradeOrder = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+            let currentIdx = gradeOrder.indexOf(item.grade);
+            
+            if (currentIdx < gradeOrder.length - 1) {
+                item.grade = gradeOrder[currentIdx + 1];
+                item.level = 0; // 등급 업그레이드 시 강화 수치 초기화
+                item.power = GRADES[item.grade].power;
+                alert(`✨축하합니다! [${GRADES[item.grade].name}] 등급으로 승급했습니다!`);
+            } else {
+                item.level = 10; // 레전드 10강이 끝
+                alert("이미 최고 등급, 최고 단계입니다!");
+            }
+        } else {
+            alert(`✅ 강화 성공! (+${item.level})`);
+        }
+    } else {
+        // 실패! (단계 하락)
+        item.level = Math.max(0, item.level - 1);
+        alert(`❌ 강화 실패... 단계가 하락했습니다. (+${item.level})`);
+    }
+
+    saveData();
+    showMenuDetail('m-equip');
 }
 
 // [3단계] 레벨별 탐험 구역 설정
@@ -427,6 +516,10 @@ const EXPLORE_ZONES = [
     { name: "솔라나 용암 동굴", minLv: 130, shard: [1000, 2500], food: [20, 40], time: 60 }, // 1시간
     { name: "마지막 심판의 오븐", minLv: 180, shard: [5000, 12000], food: [50, 100], time: 120 } // 2시간
 ];
+const BOSSES = {
+    weekly: { name: "🔥 주간 보스: 라바 골렘", minLv: 80, hp: 10000, rewardShard: 2000 },
+    monthly: { name: "🐉 월간 보스: 솔라나 드래곤", minLv: 180, hp: 100000, rewardShard: 20000 }
+};
 
 async function startZoneExplore(zoneIdx) {
     const zone = EXPLORE_ZONES[zoneIdx];
