@@ -151,7 +151,11 @@ body {
     0% { transform: translateX(0); }
     100% { transform: translateX(-250%); } /* 내용이 길면 숫자를 늘려주세요 */
 }
-
+/* 전광판 영역이 부모를 넘지 않도록 방지 */
+#rank-ticker {
+    box-sizing: border-box;
+    left: 0;
+}
 /* 3. 캐릭터 영역: 여기가 가장 중요합니다. */
 #character-area {
     flex: 1;

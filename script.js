@@ -185,6 +185,12 @@ function repairData() {
 function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
+    
+    // 저장된 스킨이 있다면 적용
+    if (userData && userData.currentSkin) {
+        applySkin(userData.currentSkin);
+    }
+
     updateRanking(); 
     updateWeather();
     setInterval(updateRanking, 60000);
@@ -764,7 +770,11 @@ function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(use
 function closeModal() {
     const modal = document.getElementById('game-modal');
     const modalContent = document.getElementById('modal-tab-content');
-    if (modal) modal.style.display = 'none';
+    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
     if (modalContent) modalContent.innerHTML = ""; 
 }
 function showBubble(text) {
@@ -967,7 +977,13 @@ const SKINS = {
     'default': { name: '오리지널 블랙', background: '#050505' },
     'solana': { name: '솔라나 네온', background: 'linear-gradient(135deg, #14F195 0%, #9945FF 100%)' },
     'midnight': { name: '미드나잇 블루', background: 'linear-gradient(to bottom, #020111, #191970)' },
-    'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' }
+    'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' },
+    // 이미지 스킨 예시 (이미지 파일이 images 폴더에 있을 때)
+    'village': { 
+        name: '평화로운 마을', 
+        background: "url('assets/images/backgrounds/평화로운 마을.jpg')", 
+        msg: "마을 공기가 참 좋다, 그치?" 
+    },
 };
 
 // 스킨 메뉴 열기
@@ -1003,40 +1019,39 @@ function openSkinMenu() {
 }
 // --- [기존의 복잡한 applySkin 부분을 지우고 이걸로 교체] ---
 
+// 3. 스킨 적용 함수 (중괄호 오류 수정 완료)
 function applySkin(skinId) {
     const screen = document.getElementById('screen');
     const skin = SKINS[skinId];
     
-    // 1. 안전 장치
     if (!screen || !skin) return;
 
-    // 2. 배경 스타일 적용 (UI 레이어 방해 금지)
+    // 배경 스타일 적용
     screen.style.backgroundImage = "none"; 
     screen.style.background = skin.background;
     screen.style.backgroundSize = "cover";
     screen.style.backgroundPosition = "center";
 
-    // 3. 데이터 저장 (함수 이름 확인: saveData 혹은 saveGameData)
+    // 데이터 저장 로직 정리
     if (userData) {
         userData.currentSkin = skinId;
-        // 본인의 저장 함수 이름에 맞춰 하나만 사용하세요
         if (typeof saveData === 'function') saveData();
         else if (typeof saveGameData === 'function') saveGameData();
-    }
+    } // 여기서 함수가 끝나지 않도록 중괄호 체크함
     
-    // 4. 모달 닫기 및 내용 비우기 (중요!)
     closeModal();
-    
-    // 5. 브라우저 클릭 버그 방지 및 피드백
     window.dispatchEvent(new Event('resize'));
-    showBubble(`✨ 새로운 스킨 적용 완료!`);
+    showBubble(skin.msg || `✨ 새로운 스킨 적용 완료!`);
 }
 
-// 모달 닫기 함수 (이건 하나만 있으면 됩니다)
+// 4. 모달 닫기 함수
 function closeModal() {
     const modal = document.getElementById('game-modal');
     const modalContent = document.getElementById('modal-tab-content');
     
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
     if (modalContent) modalContent.innerHTML = ""; 
 }
