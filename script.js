@@ -21,33 +21,6 @@ let userData = null;
 let lastClick = 0;
 let bubbleTimer = null;
 let isSleeping = false;
-
-function toggleSleep() {
-    const sleepBtn = document.getElementById('sleep-btn');
-    const characterImg = document.getElementById('character-img'); // 캐릭터 이미지 가져오기
-    
-    if (!isSleeping) {
-        // 1. 자러 갈 때
-        isSleeping = true;
-        
-        // 애니메이션 클래스 추가
-        characterImg.classList.add('sleeping');
-        
-        // 버튼 및 상태 변경
-        sleepBtn.innerHTML = "💤 깨우기";
-        console.log("캐릭터가 잠들었습니다.");
-    } else {
-        // 2. 깨어날 때
-        isSleeping = false;
-        
-        // 애니메이션 클래스 제거
-        characterImg.classList.remove('sleeping');
-        
-        // 버튼 및 상태 변경
-        sleepBtn.innerHTML = "⚡ 활동";
-        console.log("캐릭터가 깨어났습니다.");
-    }
-}
 let lastInteractionTime = Date.now();
 let crisisTimer = null;
 let comboCount = 0;
@@ -345,24 +318,6 @@ function handleFeed() {
     } else alert("먹이가 부족하거나 배부릅니다!");
 }
 
-function toggleSleep() {
-    if (!userData) return;
-    isSleeping = !isSleeping;
-    const btn = document.getElementById('sleep-btn');
-    const img = document.getElementById('character-img');
-    
-    if (isSleeping) {
-        btn.innerText = "⏰ 깨우기";
-        img.classList.add('sleeping');
-        showBubble("Zzz... 잠드는 중...");
-    } else {
-        btn.innerText = "💤 잠자기";
-        img.classList.remove('sleeping');
-        showBubble("번쩍! 잘 잤다!");
-    }
-    saveData();
-}
-
 // --- [7. UI 및 모달] ---
 // [수정] 경험치 바 업데이트 로직
 function updateUI() {
@@ -635,11 +590,6 @@ async function fightBoss(type) {
     showMenuDetail('m-boss');
 }
 
-function closeModal() {
-    const modal = document.getElementById('game-modal');
-    if (modal) modal.style.display = 'none';
-}
-
 function applySkin(skinId) {
     const screen = document.getElementById('screen');
     const skin = SKINS[skinId];
@@ -822,16 +772,6 @@ function saveData() {
 }
 
 // 3. 모달 닫기 공통 함수 (기존에 있다면 확인만 하세요)
-function closeModal() {
-    const modal = document.getElementById('game-modal');
-    const modalContent = document.getElementById('modal-tab-content');
-    
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.remove('active');
-    }
-    if (modalContent) modalContent.innerHTML = ""; 
-}
 function showBubble(text) {
     const bubble = document.getElementById('speech-bubble');
     const bubbleText = document.getElementById('bubble-text');
@@ -1026,29 +966,48 @@ setInterval(updateWeather, 30000);
 // 🚀 게임 시작 시 즉시 실행 (가장 중요!)
 setTimeout(updateWeather, 1000);
 
-// 스킨 목록 데이터
-// 1. 스킨 데이터 (배경 이미지 경로가 있다면 url('경로') 형태로 바꾸세요)
+// --- [8. 스킨 및 보조 시스템] ---
+
+// 1. 스킨 데이터 설정
 const SKINS = {
     'default': { name: '오리지널 블랙', background: '#050505' },
     'solana': { name: '솔라나 네온', background: 'linear-gradient(135deg, #14F195 0%, #9945FF 100%)' },
     'midnight': { name: '미드나잇 블루', background: 'linear-gradient(to bottom, #020111, #191970)' },
     'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' },
-    // 이미지 스킨 예시 (이미지 파일이 images 폴더에 있을 때)
-    'default': { 
-        name: "기본", 
-        background: "url('bg_default.jpg') no-repeat center/cover", // 이미지 경로 확인!
-        msg: "기본 테마로 변경되었습니다." 
-    },
+    'village': { 
+        name: '평화로운 마을', 
+        background: "url('./assets/images/backgrounds/village_bg.jpg')", // 경로 수정됨
+        msg: "마을 공기가 참 좋다, 그치?" 
+    }
 };
 
-// 스킨 메뉴 열기
+// 2. 스킨 적용 함수
+function applySkin(skinId) {
+    const screen = document.getElementById('screen');
+    const skin = SKINS[skinId];
+    if (!screen || !skin) return;
+
+    screen.style.backgroundImage = "none"; 
+    screen.style.background = skin.background;
+    screen.style.backgroundSize = "cover";
+    screen.style.backgroundPosition = "center";
+
+    if (userData) {
+        userData.currentSkin = skinId;
+        saveData();
+    }
+    closeModal();
+    window.dispatchEvent(new Event('resize'));
+    showBubble(skin.msg || `✨ 스킨 적용 완료!`);
+}
+
+// 3. 스킨 메뉴 열기
 function openSkinMenu() {
     const modal = document.getElementById('game-modal');
     const modalContent = document.getElementById('modal-tab-content');
     if (!modal || !modalContent) return;
 
     modal.style.display = 'block';
-
     let html = `
         <div id="skin-menu-container" style="padding: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1057,7 +1016,6 @@ function openSkinMenu() {
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
     `;
-
     for (let key in SKINS) {
         html += `
             <div onclick="applySkin('${key}')" style="
@@ -1072,41 +1030,50 @@ function openSkinMenu() {
     html += `</div></div>`;
     modalContent.innerHTML = html;
 }
-// --- [기존의 복잡한 applySkin 부분을 지우고 이걸로 교체] ---
 
-// 3. 스킨 적용 함수 (중괄호 오류 수정 완료)
-function applySkin(skinId) {
-    const screen = document.getElementById('screen');
-    const skin = SKINS[skinId];
-    
-    if (!screen || !skin) return;
+// 4. 레벨업 판정 함수 (에러 해결의 핵심)
+function checkLevelUp() {
+    if (!userData) return;
+    const getRequiredXP = (lv) => {
+        let req = 500 + (lv * 500) + (Math.pow(lv, 2) * 150);
+        if (lv >= 100) req += Math.pow(lv - 99, 3) * 15;
+        if (lv >= 200) req += Math.pow(lv - 199, 4) * 50;
+        return Math.floor(req);
+    };
 
-    // 배경 스타일 적용
-    screen.style.backgroundImage = "none"; 
-    screen.style.background = skin.background;
-    screen.style.backgroundSize = "cover";
-    screen.style.backgroundPosition = "center";
-
-    // 데이터 저장 로직 정리
-    if (userData) {
-        userData.currentSkin = skinId;
-        if (typeof saveData === 'function') saveData();
-        else if (typeof saveGameData === 'function') saveGameData();
-    } // 여기서 함수가 끝나지 않도록 중괄호 체크함
-    
-    closeModal();
-    window.dispatchEvent(new Event('resize'));
-    showBubble(skin.msg || `✨ 새로운 스킨 적용 완료!`);
+    let required = getRequiredXP(userData.lv);
+    if (userData.xp >= required) {
+        userData.xp -= required;
+        userData.lv++;
+        showBubble(`🎊 LEVEL UP! Lv.${userData.lv}`);
+        userData.shards += (userData.lv * 10);
+        triggerLevelUpEffect();
+        saveData();
+        checkLevelUp(); // 연속 레벨업 체크
+    }
 }
 
-// 4. 모달 닫기 함수
+// 5. 유틸리티 함수들
 function closeModal() {
     const modal = document.getElementById('game-modal');
-    const modalContent = document.getElementById('modal-tab-content');
-    
     if (modal) {
         modal.style.display = 'none';
         modal.classList.remove('active');
     }
-    if (modalContent) modalContent.innerHTML = ""; 
+}
+
+function showBubble(text) {
+    const bubble = document.getElementById('speech-bubble');
+    const bubbleText = document.getElementById('bubble-text');
+    if (!bubble || !bubbleText) return;
+    bubbleText.innerText = text;
+    bubble.style.display = 'flex'; 
+    setTimeout(() => { bubble.style.display = 'none'; }, 3000);
+}
+
+function saveData() {
+    if (userData && db) {
+        console.log(`[MONITOR] ID: ${userData.id} | Lv: ${userData.lv} | XP: ${Math.floor(userData.xp)}`);
+        db.ref(`users/${userData.id}`).set(userData);
+    }
 }
