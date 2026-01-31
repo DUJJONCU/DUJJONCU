@@ -594,11 +594,38 @@ function applySkin(skinId) {
     const screen = document.getElementById('screen');
     const skin = SKINS[skinId];
     if (!screen || !skin) return;
+
+    // 1. 배경 이미지/색상 적용 및 최적화
     screen.style.background = skin.background;
-    screen.style.backgroundSize = "cover";
-    if (userData) { userData.currentSkin = skinId; saveData(); }
+    screen.style.backgroundSize = "cover";      // 이미지가 화면에 꽉 차게
+    screen.style.backgroundPosition = "center"; // 이미지 중심 맞춤
+    screen.style.backgroundRepeat = "no-repeat";
+
+    // 2. 배경음악 제어 (추가된 부분)
+    // 기존에 재생 중인 루프가 있다면 멈추고 새로 시작하거나, 
+    // 스킨에 전용 오디오가 있다면 여기서 교체 로직을 넣을 수 있습니다.
+    if (RetroAudio && RetroAudio.isPlaying) {
+        // 현재는 단일 루프지만, 나중에 스킨별 음악을 넣으려면 
+        // RetroAudio.stopLoop() 후 새 음악 재생 로직을 여기에 넣습니다.
+    }
+
+    // 3. 데이터 저장
+    if (userData) { 
+        userData.currentSkin = skinId; 
+        saveData(); 
+    }
+
+    // 4. UI 피드백
     closeModal();
-    showBubble(skin.msg || `✨ 스킨 변경 완료!`);
+    
+    // 스킨 메뉴가 아닌 일반 모달(스킨선택창)이 따로 있다면 그것도 닫기
+    const skinMenu = document.getElementById('skin-menu');
+    if (skinMenu) skinMenu.style.display = 'none';
+
+    showBubble(skin.msg || `✨ ${skin.name} 스킨 적용!`);
+    
+    // 버튼 클릭 효과음 재생
+    if (RetroAudio) RetroAudio.playMenuClick();
 }
 
 // --- [8. 보조 함수들] ---
@@ -1127,6 +1154,7 @@ if (typeof RetroAudio === 'undefined') {
     var RetroAudio = {
         ctx: null,
         isPlaying: false,
+        loopInterval: null, // 타이머를 저장할 변수 추가
 
         init() {
             if (!this.ctx) {
@@ -1139,12 +1167,20 @@ if (typeof RetroAudio === 'undefined') {
 
         playLoop() {
             this.init();
-            if (this.isPlaying) return;
+            if (this.isPlaying) return; // 이미 재생 중이면 무시
+            
             this.isPlaying = true;
             const sequence = [440, 523, 659, 783]; 
             let step = 0;
-            setInterval(() => {
-                if (!this.isPlaying) return;
+
+            // 기존에 돌아가던 타이머가 있다면 확실히 제거
+            if (this.loopInterval) clearInterval(this.loopInterval);
+
+            this.loopInterval = setInterval(() => {
+                if (!this.isPlaying) {
+                    clearInterval(this.loopInterval); // 멈춤 상태면 타이머 해제
+                    return;
+                }
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'square';
@@ -1157,6 +1193,15 @@ if (typeof RetroAudio === 'undefined') {
                 osc.stop(this.ctx.currentTime + 0.2);
                 step++;
             }, 200);
+        },
+
+        // 멈춤 기능 추가
+        stopLoop() {
+            this.isPlaying = false;
+            if (this.loopInterval) {
+                clearInterval(this.loopInterval);
+                this.loopInterval = null;
+            }
         },
 
         playClick() {
@@ -1188,17 +1233,14 @@ if (typeof RetroAudio === 'undefined') {
             osc.start();
             osc.stop(this.ctx.currentTime + 0.05);
         }
-    };
-}
+    }; // RetroAudio 객체 끝
+} // if문 끝
 
 // --- [이벤트 연결] ---
-
-// 1. 배경음악 시작
 window.addEventListener('click', () => {
     RetroAudio.playLoop();
 }, { once: true });
 
-// 2. 캐릭터 클릭음
 const charImgEl = document.getElementById('character-img'); 
 if (charImgEl) {
     charImgEl.addEventListener('click', () => {
@@ -1206,10 +1248,8 @@ if (charImgEl) {
     });
 }
 
-// 3. 메뉴 및 버튼 클릭음 (자동 연결)
-// 모든 버튼과 nav-item에 소리를 입힙니다.
 document.addEventListener('click', (e) => {
-    if (e.target.closest('button') || e.target.closest('.nav-item')) {
+    if (e.target.closest('button') || e.target.closest('.nav-item') || e.target.closest('.action-btn')) {
         RetroAudio.playMenuClick();
     }
 });
