@@ -1101,7 +1101,28 @@ function saveData() {
 
 // 레트로 게임기 엔진
 
-// --- [사운드 시스템 시작] ---
+// --- [잠자기 기능 추가] ---
+function toggleSleep() {
+    if (!userData) return;
+    isSleeping = !isSleeping;
+    
+    const charImg = document.getElementById('character-img');
+    const sleepBtn = document.querySelector('.action-btn:nth-child(2)'); // 두 번째 버튼 (활동/잠자기)
+
+    if (isSleeping) {
+        if (charImg) charImg.classList.add('sleeping');
+        if (sleepBtn) sleepBtn.innerText = "☀️ 깨우기";
+        showBubble("Zzz... 숙면 중...");
+    } else {
+        if (charImg) charImg.classList.remove('sleeping');
+        if (sleepBtn) sleepBtn.innerText = "💤 잠자기";
+        showBubble("하암~ 잘 잤다!");
+    }
+    saveData();
+    updateUI();
+}
+
+// --- [레트로 오디오 엔진] ---
 if (typeof RetroAudio === 'undefined') {
     var RetroAudio = {
         ctx: null,
@@ -1116,12 +1137,10 @@ if (typeof RetroAudio === 'undefined') {
             }
         },
 
-        // 배경음악 (사각파)
         playLoop() {
             this.init();
             if (this.isPlaying) return;
             this.isPlaying = true;
-
             const sequence = [440, 523, 659, 783]; 
             let step = 0;
             setInterval(() => {
@@ -1140,7 +1159,6 @@ if (typeof RetroAudio === 'undefined') {
             }, 200);
         },
 
-        // 캐릭터 클릭음: "뿅!"
         playClick() {
             this.init();
             const osc = this.ctx.createOscillator();
@@ -1156,7 +1174,6 @@ if (typeof RetroAudio === 'undefined') {
             osc.stop(this.ctx.currentTime + 0.1);
         },
 
-        // 메뉴 클릭음: "띠링!"
         playMenuClick() {
             this.init();
             const osc = this.ctx.createOscillator();
@@ -1174,25 +1191,25 @@ if (typeof RetroAudio === 'undefined') {
     };
 }
 
-// --- [이벤트 바인딩] ---
+// --- [이벤트 연결] ---
 
-// 1. 화면 클릭 시 배경음악 시작
+// 1. 배경음악 시작
 window.addEventListener('click', () => {
     RetroAudio.playLoop();
 }, { once: true });
 
-// 2. 캐릭터 이미지 클릭음 연결
-const characterImgEl = document.getElementById('character-img'); 
-if (characterImgEl) {
-    characterImgEl.addEventListener('click', () => {
+// 2. 캐릭터 클릭음
+const charImgEl = document.getElementById('character-img'); 
+if (charImgEl) {
+    charImgEl.addEventListener('click', () => {
         RetroAudio.playClick();
     });
 }
 
-// 3. 메뉴 버튼들 클릭음 연결 (하단 버튼들)
-// 스크린샷의 '먹이기', '활동', '스킨', '메뉴' 버튼이 이 클래스를 가져야 합니다.
-document.querySelectorAll('.nav-item, .action-btn, button').forEach(btn => {
-    btn.addEventListener('click', () => {
+// 3. 메뉴 및 버튼 클릭음 (자동 연결)
+// 모든 버튼과 nav-item에 소리를 입힙니다.
+document.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('.nav-item')) {
         RetroAudio.playMenuClick();
-    });
+    }
 });
