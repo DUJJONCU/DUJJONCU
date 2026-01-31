@@ -790,4 +790,21 @@ body {
 /* 스킨별 상세 설정 */
 .skin-default { background-color: #050505 !important; background-image: none !important; }
 .skin-solana { background: linear-gradient(135deg, #14F195 0%, #9945FF 100%) !important; }
-.skin-nebula { background-image: url('nebula.jpg') !important; background-size: cover; }    
+.skin-nebula { background-image: url('nebula.jpg') !important; background-size: cover; }  
+
+/* style.css에 추가 */
+@keyframes hit-shake {
+    0% { transform: scale(1) rotate(0); }
+    25% { transform: scale(0.9) rotate(-5deg); }
+    50% { transform: scale(1.1) rotate(5deg); }
+    100% { transform: scale(1) rotate(0); }
+}
+
+.hit-animation {
+    animation: hit-shake 0.1s ease-in-out;
+}
+
+@keyframes floatUp {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100px); opacity: 0; }
+}

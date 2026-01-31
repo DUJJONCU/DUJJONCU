@@ -267,91 +267,54 @@ function gameLoop() {
 }
 
 // --- [6. 메인 액션] ---
-function handleTap() {
+// --- [부유 텍스트 함수: handleTap 밖으로 뺍니다] ---
+// [1] 부유 텍스트 생성기 (파일 하단이나 handleTap 위에 두세요)
+function showFloatingText(x, y, text, color = "#14F195") {
+    const el = document.createElement('div');
+    el.innerText = text;
+    el.style.cssText = `
+        position: fixed; left: ${x}px; top: ${y}px;
+        color: ${color}; font-weight: bold; font-size: 24px;
+        pointer-events: none; z-index: 9999;
+        animation: floatUp 0.8s ease-out forwards;
+        text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+}
+
+function handleTap(event) {
     if (!userData || isSleeping || userData.isAdventuring || crisisTimer) return;
-    
-    // 1. 배고픔 체크
-    if (userData.hg <= 0) {
-        showBubble("배고파서 기운이 없어요..");
-        return;
-    }
+    if (userData.hg <= 0) { showBubble("배고파서 기운이 없어요.."); return; }
 
     const stats = calculateStats();
     const now = Date.now();
-    
-    // 쿨타임 체크
-    if (now - lastClick < 50) return; 
+    if (now - lastClick < 80) return; // 물리적 탭 속도 제한
     lastClick = now;
-    lastInteractionTime = now;
 
-    let gainedXp = 0;
-    let isCritical = false;
+    let gainedXp = isBonusTime ? (15 + (userData.lv * 0.2)) : (3 + (userData.lv * 0.05));
 
-    // --- [경험치 계산 로직 수정] ---
-    if (isBonusTime) {
-        comboCount++;
-        clearTimeout(comboTimer);
-        showComboUI(comboCount);
-        comboTimer = setTimeout(() => { 
-            comboCount = 0; 
-            hideComboUI(); 
-        }, stats.comboTime);
+    if (gainedXp > 40) gainedXp = 40; // 최대 캡(Cap)
 
-        isCritical = (Math.random() * 100) < (stats.luck * 2); 
-        // 보너스 타임: 탭 파워를 적극 반영 (최소 50~200 이상)
-        gainedXp = (stats.tapPower * 2) * (isCritical ? 5 : 2);
-        
-        createSparkle(); 
-    } else {
-        // 평상시: 레벨에 비례해서 경험치 획득량 대폭 상향 (최소 10점 이상)
-        gainedXp = 10 + (userData.lv * 2); 
-        comboCount = 0; 
-        hideComboUI();
-    }
+    let isCritical = (Math.random() * 100) < (isBonusTime ? stats.luck * 1.5 : 5);
+    if (isCritical) gainedXp *= 2;
 
-    // --- [데이터 반영] ---
-    // 숫자로 확실히 변환하고 경험치 추가
-    userData.xp = (Number(userData.xp) || 0) + gainedXp; 
+    let clickX = event ? (event.clientX || (event.touches && event.touches[0].clientX)) : window.innerWidth/2;
+    let clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight/2;
+
+    showFloatingText(clickX, clickY, `+${Math.floor(gainedXp)}`, isCritical ? "#ff4757" : "#14F195");
+
+    userData.xp = (Number(userData.xp) || 0) + gainedXp;
+    userData.hg = Math.max(0, userData.hg - (isBonusTime ? stats.hgDrain * 0.7 : stats.hgDrain));
     
-    // 허기 소모
-    const hgLoss = isBonusTime ? (stats.hgDrain * 0.5) : stats.hgDrain;
-    userData.hg = Math.max(0, userData.hg - hgLoss);
-    
-    userData.mood = Math.min(100, userData.mood + 0.1);
-
-    // 로그 확인 (F12 콘솔에서 상승폭 확인용)
-    console.log(`획득 XP: ${gainedXp}, 현재 XP: ${userData.xp.toFixed(2)}`);
-
-    // 저장 및 UI 갱신
-    checkLevelUp();
-    updateUI();
+    checkLevelUp(); // 여기서 아래 2번 함수를 호출함
+    updateUI();    // 여기서 아래 3번 로직을 실행함
     saveData();
 
-    // 캐릭터 흔들기 효과
     const img = document.getElementById('character-img');
     if (img) {
-        const scale = isBonusTime ? (isCritical ? 1.4 : 1.2) : 1.1;
-        img.style.transform = `scale(${scale}) rotate(${Math.random() * 10 - 5}deg)`;
-        setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 100);
-    }
-    
-    if (isBonusTime && isCritical) {
-        showBubble("💥 CRITICAL!!");
-        triggerCriticalEffect();
-    }
-}
-
-function checkLevelUp() {
-    // 위와 동일한 공식 적용
-    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.5) * 450 * 1.2);
-    let nextXP = getLevelXP(userData.lv);
-
-    if (userData.xp >= nextXP) {
-        userData.lv++;
-        userData.shards += (userData.lv * 150); 
-        triggerLevelUpEffect();
-        showBubble(`🎉 LEVEL UP! (Lv.${userData.lv})`);
-        saveData();
+        img.style.transform = `scale(1.1) rotate(${Math.random() * 8 - 4}deg)`;
+        setTimeout(() => { img.style.transform = "scale(1) rotate(0deg)"; }, 80);
     }
 }
 
@@ -431,58 +394,48 @@ function updateUI() {
         statusTag.style.animation = isBonusTime ? "blink 0.5s infinite" : "none";
     }
 
-    // 2. 경험치 바 계산
-    const getLevelXP = (lv) => Math.floor(Math.pow(lv, 2.5) * 450 * 1.2);
-    const prevXP = userData.lv === 1 ? 0 : getLevelXP(userData.lv - 1);
-    const nextXP = getLevelXP(userData.lv);
-    
-    const requiredXPInThisLevel = nextXP - prevXP;
-    const currentXPInThisLevel = Math.max(0, userData.xp - prevXP);
-    
-    let xpPercent = (currentXPInThisLevel / requiredXPInThisLevel) * 100;
+    // 2. 경험치 바 계산 (30일 밸런스 공식 적용)
+    const getLevelXP = (lv) => {
+        let req = 500 + (lv * 500) + (Math.pow(lv, 2) * 150);
+        if (lv >= 100) req += Math.pow(lv - 99, 3) * 15;
+        if (lv >= 200) req += Math.pow(lv - 199, 4) * 50;
+        return Math.floor(req);
+    };
+
+    const nextXPRequired = getLevelXP(userData.lv);
+    let xpPercent = (userData.xp / nextXPRequired) * 100;
     xpPercent = Math.min(100, Math.max(0, xpPercent));
 
     const expBar = document.getElementById('exp-bar');
     const expLabel = document.getElementById('exp-label');
-    
+
     if (expBar) expBar.style.width = xpPercent + "%";
-    
-    // [수정] 소수점을 9자리까지 표시하여 정밀도 향상
     if (expLabel) {
-        expLabel.innerText = xpPercent.toFixed(9) + "%";
-        // 글자가 너무 길어지면 폰트 사이즈를 살짝 줄이는 센스!
-        expLabel.style.fontSize = "10px"; 
+        expLabel.innerText = `Lv.${userData.lv} (${xpPercent.toFixed(4)}%)`;
     }
 
-   // 3. 자원 수치 업데이트 (ID 매칭 및 텍스트 갱신)
+    // 3. 자원 수치 업데이트
     const hungryBar = document.getElementById('hungry-bar');
-    const hungryVal = document.getElementById('hungry-val'); // HTML의 숫자 표시 ID
+    const hungryVal = document.getElementById('hungry-val');
     const moodBar = document.getElementById('mood-bar');
-    const moodVal = document.getElementById('mood-val');     // HTML의 숫자 표시 ID
+    const moodVal = document.getElementById('mood-val');
 
-    // 배고픔(HG) 업데이트
     if (hungryBar) hungryBar.style.width = userData.hg + "%";
     if (hungryVal) hungryVal.innerText = `${Math.floor(userData.hg)}/100`;
-
-    // 무드(MOOD) 업데이트
     if (moodBar) moodBar.style.width = userData.mood + "%";
     if (moodVal) moodVal.innerText = `${Math.floor(userData.mood)}/100`;
 
-    // 기타 자원
     if (document.getElementById('food-val')) document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
     if (document.getElementById('shard-val')) document.getElementById('shard-val').innerText = Math.floor(userData.shards).toLocaleString();
-    // 4. 이름 및 칭호 표시 (innerHTML 사용 부분)
+
+    // 4. 이름 및 칭호 표시
     const title = TITLES.filter(t => userData.lv >= t.lv).pop();
     let nameDisplay = `[${title.name}] ${userData.id}`;
-
     if (userData.isDonator) {
         nameDisplay = `<span style="color:#f1c40f; font-weight:bold;">[💎명예]</span> ` + nameDisplay;
     }
-
     const userTitleEl = document.getElementById('user-title');
-    if (userTitleEl) {
-        userTitleEl.innerHTML = nameDisplay; // <-- 질문하신 코드가 바로 여기 들어갑니다!
-    }
+    if (userTitleEl) userTitleEl.innerHTML = nameDisplay;
 }
    
 function openModal() {
@@ -514,61 +467,78 @@ function openModal() {
     `;
 }
 
+const BOSSES = {
+    weekly: { name: "🔥 주간 보스: 라바 골렘", minLv: 80, hp: 10000, rewardShard: 2000 },
+    monthly: { name: "🐉 월간 보스: 솔라나 드래곤", minLv: 180, hp: 100000, rewardShard: 20000 }
+};
+
 async function showMenuDetail(menuId) {
     const detailArea = document.getElementById('menu-detail-area');
     let html = '';
 
     if (menuId === 'm-equip') {
-    const parts = { 
-        weapon: { label: "무기", icon: "⚔️" }, 
-        helmet: { label: "투구", icon: "🪖" }, 
-        armor: { label: "갑옷", icon: "👕" }, 
-        boots: { label: "신발", icon: "👟" }, 
-        accessory: { label: "반지", icon: "💍" } 
-    };
+        html = `<b style="color:#9945FF;">🛡️ 장비 강화 스테이션</b><br>
+                <div style="margin-top:10px; max-height:280px; overflow-y:auto; padding-right:5px;">`;
 
-    html = `<div style="text-align:center; margin-bottom:10px;">
-                <b style="color:#9945FF; font-size:14px;">📦 대장간</b><br>
-                <small style="color:#888;">강화 성공 시 +1 / 실패 시 -1 (10강 달성 시 승급!)</small>
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:280px; overflow-y:auto; padding:5px;">`;
+        const parts = { 
+            weapon: { label: "무기", icon: "⚔️" }, 
+            helmet: { label: "투구", icon: "🪖" }, 
+            armor: { label: "갑옷", icon: "👕" }, 
+            boots: { label: "신발", icon: "👟" }, 
+            accessory: { label: "반지", icon: "💍" } 
+        };
 
-    for (let key in parts) {
-        const item = userData.inventory[key];
-        const gName = item ? GRADES[item.grade].name : "미착용";
-        const gColor = item ? GRADES[item.grade].color : "#555";
-        const level = item ? item.level : 0;
-        
-        // 강화 게이지 생성 (10칸)
-        let gauge = `<div style="display:flex; gap:1px; margin:4px 0;">`;
-        for(let i=1; i<=10; i++) {
-            gauge += `<div style="flex:1; height:4px; background:${i <= level ? gColor : '#333'}; border-radius:2px;"></div>`;
-        }
-        gauge += `</div>`;
+        // 실제 로직과 동일한 배수 설정
+        const gradeMultipliers = { Common: 1, Uncommon: 1.2, Rare: 1.5, Epic: 3, Legendary: 10 };
 
-        html += `
-            <div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:12px; border:1px solid ${item ? gColor : '#333'}; position:relative; overflow:hidden;">
-                <div style="position:absolute; top:-20px; right:-20px; font-size:40px; opacity:0.1;">${parts[key].icon}</div>
+        Object.keys(parts).forEach(key => {
+            const item = userData.inventory[key];
+            const p = parts[key];
+
+            if (!item) {
+                // 장비가 없을 때: 제작 버튼
+                html += `
+                    <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:12px; margin-bottom:10px; border:1px dashed #444;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:12px; color:#888;">${p.icon} ${p.label} 없음</span>
+                            <button onclick="upgradeItem('${key}')" style="font-size:10px; padding:5px 10px; cursor:pointer; background:#444; color:#fff; border:none; border-radius:6px;">🔨 제작 (300💎)</button>
+                        </div>
+                    </div>`;
+            } else {
+                // 장비가 있을 때: 강화 정보 표시
+                const baseCost = gradeMultipliers[item.grade] * 200;
+                const levelCost = item.level * 100; 
+                const upgradeCost = Math.floor(baseCost + levelCost);
                 
-                <div style="display:flex; align-items:center; gap:5px; margin-bottom:5px;">
-                    <span style="font-size:16px;">${parts[key].icon}</span>
-                    <span style="font-size:10px; color:#aaa;">${parts[key].label}</span>
-                </div>
+                // 3강까지는 SAFE, 그 이후는 RISK
+                const isSafe = item.level < 3;
+                const safetyTag = isSafe 
+                    ? `<span style="color:#14F195; font-size:10px; font-weight:bold;">[SAFE]</span>` 
+                    : `<span style="color:#ff4757; font-size:10px; font-weight:bold;">[RISK]</span>`;
 
-                <div style="color:${gColor}; font-size:11px; font-weight:bold;">
-                    ${gName} <span style="color:#fff;">+${level}</span>
-                </div>
-                
-                ${gauge}
+                html += `
+                    <div style="background:rgba(255,255,255,0.08); padding:12px; border-radius:12px; margin-bottom:10px; border:1px solid #9945FF;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div style="font-size:13px; font-weight:bold; color:#fff;">
+                                    ${p.icon} ${GRADES[item.grade].name} ${p.label} +${item.level}
+                                </div>
+                                <div style="font-size:10px; color:#14F195; margin-top:3px;">전투력 상승: +${(GRADES[item.grade].power + (item.level * 5))}</div>
+                            </div>
+                            <button onclick="upgradeItem('${key}')" style="background:#9945FF; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                                강화하기
+                            </button>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:8px;">
+                            <span style="font-size:11px; color:#f1c40f; font-weight:bold;">💎 ${upgradeCost.toLocaleString()}</span>
+                            ${safetyTag}
+                        </div>
+                    </div>`;
+            }
+        });
 
-                <button onclick="upgradeItem('${key}')" 
-                        style="width:100%; margin-top:8px; padding:6px; font-size:10px; background:${item ? '#444' : '#9945FF'}; color:#fff; border:none; border-radius:6px; cursor:pointer; transition:0.2s;">
-                    ${item ? `강화 (${(level+1)*200}💎)` : '제작 (500💎)'}
-                </button>
-            </div>`;
+        html += `</div>`;
     }
-    html += `</div>`;
-} 
     else if (menuId === 'm-rank') {
         detailArea.innerHTML = "로딩 중...";
         const snap = await db.ref('users').once('value');
@@ -577,33 +547,36 @@ async function showMenuDetail(menuId) {
                ranks.map((u, i) => `<div style="font-size:11px; margin-bottom:3px; text-align:left;">${i+1}. ${u.id} (Lv.${u.lv})</div>`).join('') + `</div>`;
     } 
     else if (menuId === 'm-dungeon') {
-        html = `<b style="color:#14F195;">📍 탐험 구역 선택</b><br>
-                <div style="margin-top:10px; max-height:220px; overflow-y:auto; padding-right:5px;">`;
+    html = `<b style="color:#14F195;">🏹 재료 파밍 (구역 선택)</b><br>
+            <div style="margin-top:10px; max-height:280px; overflow-y:auto; padding-right:5px;">`;
 
-        EXPLORE_ZONES.forEach((z, i) => {
-            const isLocked = userData.lv < z.minLv;
-            html += `
-                <div style="background:rgba(255,255,255,0.05); border:1px solid ${isLocked ? '#444' : '#9945FF'}; 
-                            padding:10px; border-radius:12px; margin-bottom:10px; opacity:${isLocked ? 0.6 : 1};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:12px; font-weight:bold; color:${isLocked ? '#888' : '#fff'};">
-                            ${isLocked ? '🔒 ' : ''}${z.name} <small>(Lv.${z.minLv})</small>
-                        </span>
-                        ${!userData.isAdventuring && !isLocked ? 
-                            `<button onclick="startZoneExplore(${i})" style="font-size:10px; padding:4px 8px; cursor:pointer;">출발</button>` : ''}
-                    </div>
-                    <div style="font-size:9px; color:#aaa; margin-top:4px;">🎁 예상: 💎${z.shard[0]}~${z.shard[1]} | 🍪${z.food[0]}~${z.food[1]}</div>
-                </div>`;
-        });
+    EXPLORE_ZONES.forEach((z, i) => {
+        const isLocked = userData.lv < z.minLv;
+        const costTag = (z.cost === 0) 
+            ? `<span style="color:#14F195; font-weight:bold;">FREE</span>` 
+            : `<span style="color:#f1c40f;">💎 ${z.cost.toLocaleString()}</span>`;
 
-        if (userData.isAdventuring) {
-            const remaining = Math.max(0, Math.ceil((userData.adventureEndTime - Date.now()) / 1000 / 60));
-            html += `<div style="text-align:center; color:#f1c40f; font-size:11px; margin-top:10px;">
-                        🚶 현재 탐험 중... (${remaining}분 남음)
-                        </div>`;
-        }
-        html += `</div>`;
-    }
+        html += `
+            <div style="background:rgba(255,255,255,0.05); border:1px solid ${isLocked ? '#444' : '#9945FF'}; 
+                        padding:12px; border-radius:12px; margin-bottom:10px; opacity:${isLocked ? 0.6 : 1};">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; font-weight:bold; color:${isLocked ? '#888' : '#fff'};">
+                        ${z.name} <small style="font-size:9px; color:#aaa;">(Lv.${z.minLv})</small>
+                    </span>
+                    ${!userData.isAdventuring && !isLocked ? 
+                        `<button onclick="startZoneExplore(${i})" style="font-size:10px; padding:5px 12px; background:#9945FF; color:white; border:none; border-radius:6px; cursor:pointer;">채집 시작</button>` : ''}
+                </div>
+                <div style="font-size:10px; color:#888; margin-top:5px; line-height:1.4;">${z.desc}</div>
+                <div style="font-size:11px; color:#ccc; margin-top:8px; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;">
+                    <span>비용: ${costTag}</span>
+                    <span>⏳ ${z.time}분</span>
+                </div>
+            </div>`;
+    });
+    // ... (이하 탐험 중 UI는 기존과 동일)
+    html += `</div>`;
+}
+
     else if (menuId === 'm-boss') {
     html = `<b style="color:#ff4757;">👹 거대 보스 레이드</b><br>
             <div style="margin-top:10px;">`;
@@ -619,8 +592,24 @@ async function showMenuDetail(menuId) {
             </div>`;
     }
     html += `</div>`;
-}
-
+    }
+    else if (menuId === 'm-dungeon') {
+        html = `<b style="color:#14F195;">🏹 구역 탐험</b><div style="margin-top:10px;">`;
+        EXPLORE_ZONES.forEach((z, i) => {
+            const isLocked = userData.lv < z.minLv;
+            html += `<div style="background:rgba(255,255,255,0.05); border:1px solid ${isLocked ? '#444' : '#9945FF'}; padding:8px; border-radius:10px; margin-bottom:5px; opacity:${isLocked ? 0.6 : 1};">
+                <span style="font-size:11px;">${isLocked ? '🔒' : '📍'} ${z.name}</span>
+                ${!userData.isAdventuring && !isLocked ? `<button onclick="startZoneExplore(${i})" style="float:right; font-size:10px;">출발</button>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+    }
+    else if (menuId === 'm-rank') {
+        detailArea.innerHTML = "조회 중...";
+        const snap = await db.ref('users').once('value');
+        const ranks = Object.values(snap.val() || {}).sort((a,b)=>b.xp-a.xp).slice(0, 10);
+        html = `<b>🏆 TOP 10</b><br>` + ranks.map((u, i) => `<div style="font-size:11px;">${i+1}. ${u.id} (Lv.${u.lv})</div>`).join('');
+    }
     detailArea.innerHTML = html;
 }
 
@@ -646,86 +635,132 @@ async function fightBoss(type) {
     showMenuDetail('m-boss');
 }
 
+function closeModal() {
+    const modal = document.getElementById('game-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function applySkin(skinId) {
+    const screen = document.getElementById('screen');
+    const skin = SKINS[skinId];
+    if (!screen || !skin) return;
+    screen.style.background = skin.background;
+    screen.style.backgroundSize = "cover";
+    if (userData) { userData.currentSkin = skinId; saveData(); }
+    closeModal();
+    showBubble(skin.msg || `✨ 스킨 변경 완료!`);
+}
+
 // --- [8. 보조 함수들] ---
 function upgradeItem(type) {
     let item = userData.inventory[type];
     
-    // 1. 장비가 아예 없는 경우: 새로 제작 (커먼 등급부터 시작)
+    // 1. 장비 제작 (기존 로직 유지)
     if (!item) {
-        if (userData.shards < 500) return alert("제작비 500💎이 부족합니다!");
-        userData.shards -= 500;
+        if (userData.shards < 300) return alert("제작비 300💎이 부족합니다!");
+        userData.shards -= 300;
         userData.inventory[type] = { grade: "Common", level: 0, power: GRADES.Common.power };
-        alert(`🔨 [커먼] ${type}을(를) 제작했습니다!`);
-        saveData(); showMenuDetail('m-equip'); return;
+        alert(`🔨 [커먼] ${type} 제작 완료!`);
+        saveData(); updateUI(); showMenuDetail('m-equip'); return;
     }
 
-    // ---------------- [ 여기서부터 교체 시작 ] ----------------
-    
-    // [수정된 매운맛 비용 공식]
-    const gradeMultipliers = { 
-        Common: 1, Uncommon: 2, Rare: 5, Epic: 15, Legendary: 50 
-    };
-
-    const baseCost = gradeMultipliers[item.grade] * 1000;
-    const levelCost = Math.pow(item.level + 1, 2) * 500;
-    const upgradeCost = baseCost + levelCost;
+    // 2. 강화 비용 계산 (Rare 1강 기준 약 400💎 공식)
+    const gradeMultipliers = { Common: 1, Uncommon: 1.2, Rare: 1.5, Epic: 3, Legendary: 10 };
+    const baseCost = gradeMultipliers[item.grade] * 200;
+    const levelCost = item.level * 100; 
+    const upgradeCost = Math.floor(baseCost + levelCost);
 
     if (userData.shards < upgradeCost) {
         return alert(`강화비 ${upgradeCost.toLocaleString()}💎이 부족합니다!`);
     }
     
-    // 조각 차감
+    // 3. 강화 시도 확인
+    const safetyMsg = item.level < 3 ? "✅ 3강까지는 파괴/하락 없는 안전 구간입니다." : "⚠️ 실패 시 강화 단계가 하락할 수 있습니다!";
+    if (!confirm(`비용: ${upgradeCost.toLocaleString()}💎\n${safetyMsg}\n강화를 시도하시겠습니까?`)) return;
+
     userData.shards -= upgradeCost;
     
-    // [수정된 매운맛 확률 공식]
-    const gradeSuccessBase = { 
-        Common: 0.8, Uncommon: 0.7, Rare: 0.5, Epic: 0.3, Legendary: 0.1 
-    };
-    const successChance = gradeSuccessBase[item.grade] - (item.level * 0.02);
+    // 4. 성공 확률 설정
+    const gradeSuccessBase = { Common: 0.95, Uncommon: 0.85, Rare: 0.7, Epic: 0.5, Legendary: 0.3 };
+    let successChance = gradeSuccessBase[item.grade] - (item.level * 0.03);
+    
+    // 3강까지는 무조건 성공 (안전 강화)
+    if (item.level < 3) successChance = 1.0;
+
     const rand = Math.random();
 
     if (rand < successChance) {
-        // 성공!
+        // --- [성공 로직] ---
         item.level++;
+        
+        // 10강 달성 시 다음 등급 승급 도전
         if (item.level > 10) {
-            // 10강 성공 시 다음 등급 승급
             const gradeOrder = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
             let currentIdx = gradeOrder.indexOf(item.grade);
             
             if (currentIdx < gradeOrder.length - 1) {
-                item.grade = gradeOrder[currentIdx + 1];
-                item.level = 0; // 등급 업그레이드 시 강화 수치 초기화
-                item.power = GRADES[item.grade].power;
-                alert(`✨축하합니다! [${GRADES[item.grade].name}] 등급으로 승급했습니다!`);
+                const nextGrade = gradeOrder[currentIdx + 1];
+                item.grade = nextGrade;
+                item.level = 0; // 승급 시 0강부터 다시 시작
+                item.power = GRADES[nextGrade].power;
+                alert(`🎊 축하합니다! 장비가 [${GRADES[nextGrade].name}] 등급으로 진화했습니다!`);
             } else {
-                item.level = 10; // 레전드 10강이 끝
-                alert("이미 최고 등급, 최고 단계입니다!");
+                item.level = 10; // 레전더리 10강이 끝
+                alert("이미 신의 경지에 도달한 장비입니다!");
             }
         } else {
-            alert(`✅ 강화 성공! (+${item.level})`);
+            showBubble(`✨ 강화 성공! (+${item.level})`);
         }
     } else {
-        // 실패! (단계 하락)
-        item.level = Math.max(0, item.level - 1);
-        alert(`❌ 강화 실패... 단계가 하락했습니다. (+${item.level})`);
+        // --- [실패 로직] ---
+        if (item.level <= 3) {
+            // 안전 구간은 실패해도 변화 없음 (사실 확률 100%라 여기 올 일은 없음)
+            showBubble(`❌ 강화 실패... (안전 구간이라 단계 유지)`);
+        } else {
+            // 4강부터는 실패 시 1단계 하락
+            item.level = Math.max(3, item.level - 1); 
+            alert(`💀 강화 실패! 단계가 하락하여 (+${item.level})이 되었습니다.`);
+        }
     }
 
     saveData();
+    updateUI(); 
     showMenuDetail('m-equip');
 }
 
 // [3단계] 레벨별 탐험 구역 설정
 const EXPLORE_ZONES = [
-    { name: "평온한 밀가루 밭", minLv: 1, shard: [5, 15], food: [2, 5], time: 5 },   // 5분 소요
-    { name: "설탕 가루 숲", minLv: 30, shard: [50, 100], food: [5, 10], time: 15 }, // 15분 소요
-    { name: "초코칩 암석 지대", minLv: 80, shard: [200, 450], food: [10, 20], time: 30 }, // 30분 소요
-    { name: "솔라나 용암 동굴", minLv: 130, shard: [1000, 2500], food: [20, 40], time: 60 }, // 1시간
-    { name: "마지막 심판의 오븐", minLv: 180, shard: [5000, 12000], food: [50, 100], time: 120 } // 2시간
+    { 
+        name: "🌾 카다이프 실타래 들판", 
+        minLv: 1, cost: 0, 
+        shard: [5, 15], food: [2, 5], time: 5,
+        desc: "바삭한 면들이 바람에 날리는 들판입니다. 기본 재료를 얻기 좋아요."
+    },
+    { 
+        name: "🧈 노란 무염버터 샘터", 
+        minLv: 30, cost: 500, 
+        shard: [50, 100], food: [5, 10], time: 15,
+        desc: "풍미 가득한 버터가 흐르는 곳입니다. 카다이프를 볶을 때 필수죠!"
+    },
+    { 
+        name: "💚 피스타치오 꾸덕 호수", 
+        minLv: 80, cost: 2000, 
+        shard: [200, 450], food: [10, 20], time: 30,
+        desc: "진한 초록빛 스프레드가 가득합니다. 가장 인기 있는 재료입니다."
+    },
+    { 
+        name: "☁️ 마시멜로 쫀득 구름 언덕", 
+        minLv: 130, cost: 8000, 
+        shard: [1000, 2500], food: [20, 40], time: 60,
+        desc: "밟으면 푹신하고 쫀득한 언덕입니다. 두쫀쿠의 식감을 담당해요."
+    },
+    { 
+        name: "🍫 화이트 커버춰 암석 지대", 
+        minLv: 180, cost: 30000, 
+        shard: [5000, 12000], food: [50, 100], time: 120,
+        desc: "반짝이는 초콜릿 원석이 박힌 동굴입니다. 최상급 코팅 재료를 얻으세요!"
+    }
 ];
-const BOSSES = {
-    weekly: { name: "🔥 주간 보스: 라바 골렘", minLv: 80, hp: 10000, rewardShard: 2000 },
-    monthly: { name: "🐉 월간 보스: 솔라나 드래곤", minLv: 180, hp: 100000, rewardShard: 20000 }
-};
 
 async function startZoneExplore(zoneIdx) {
     const zone = EXPLORE_ZONES[zoneIdx];
@@ -738,34 +773,54 @@ async function startZoneExplore(zoneIdx) {
     if (userData.isAdventuring) {
         return alert("이미 탐험 중인 캐릭터가 있습니다!");
     }
-    // 3. 허기 확인 (탐험은 에너지가 많이 듭니다)
+    // 3. 허기 확인
     if (userData.hg < 30) {
         return alert("배고파서 탐험을 떠날 수 없어요! (최소 30 HG 필요)");
     }
-    // --- [여기를 추가하세요: 4. 입장료 확인 및 차감] ---
-    // 구역 인덱스에 따라 입장료가 비싸지게 설정 (예: 1번구역 500, 2번구역 1500...)
-    const entryFee = (zoneIdx + 1) * 500; 
+
+    // --- [수정된 부분: 데이터 시트의 cost 값을 직접 사용] ---
+    const entryFee = zone.cost || 0; // 데이터에 cost가 없으면 0으로 처리
     
     if (userData.shards < entryFee) {
         return alert(`입장료 ${entryFee.toLocaleString()}💎이 부족합니다!`);
     }
-    userData.shards -= entryFee; // 입장료 차감
+    
+    // 입장료 차감
+    userData.shards -= entryFee; 
     // --------------------------------------------------
 
     // 탐험 설정
     userData.hg -= 30;
     userData.isAdventuring = true;
-    userData.adventureZoneIdx = zoneIdx; // 어떤 구역인지 기록
+    userData.adventureZoneIdx = zoneIdx; 
     userData.adventureEndTime = Date.now() + (zone.time * 60 * 1000);
-    // 알림창에도 입장료 정보를 넣어주면 더 친절합니다.
-    alert(`[${zone.name}] 입장료 ${entryFee}💎 지불! 탐험을 시작합니다.`);
+
+    // 알림창 메시지 분기 (무료/유료)
+    if (entryFee > 0) {
+        alert(`[${zone.name}] 입장료 ${entryFee.toLocaleString()}💎 지불! 탐험을 시작합니다.`);
+    } else {
+        alert(`[${zone.name}] 탐험을 시작합니다!`);
+    }
     
     saveData();
     showMenuDetail('m-dungeon'); 
     updateUI();
 }
 
-function saveData() { if (userData && db) db.ref(`users/${userData.id}`).set(userData); }
+function saveData() {
+    if (userData && db) {
+        // 유저의 시간당 레벨업 속도를 추측하기 위한 로그
+        console.log(`[MONITOR] ID: ${userData.id} | Lv: ${userData.lv} | XP: ${Math.floor(userData.xp)}`);
+        
+        // 비정상 유저 감지
+        if (userData.lv > 350) {
+            console.warn(`🚨 주의: ${userData.id} 유저가 350레벨을 돌파했습니다.`);
+        }
+
+        db.ref(`users/${userData.id}`).set(userData);
+    }
+}
+
 // 3. 모달 닫기 공통 함수 (기존에 있다면 확인만 하세요)
 function closeModal() {
     const modal = document.getElementById('game-modal');
@@ -979,10 +1034,10 @@ const SKINS = {
     'midnight': { name: '미드나잇 블루', background: 'linear-gradient(to bottom, #020111, #191970)' },
     'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' },
     // 이미지 스킨 예시 (이미지 파일이 images 폴더에 있을 때)
-    'village': { 
-        name: '평화로운 마을', 
-        background: "url('assets/images/backgrounds/평화로운 마을.jpg')", 
-        msg: "마을 공기가 참 좋다, 그치?" 
+    'default': { 
+        name: "기본", 
+        background: "url('bg_default.jpg') no-repeat center/cover", // 이미지 경로 확인!
+        msg: "기본 테마로 변경되었습니다." 
     },
 };
 
