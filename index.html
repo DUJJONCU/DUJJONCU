@@ -24,22 +24,33 @@
             <div class="fog-layer shadow-fog"></div>
 
             <div id="top-ui" style="position: relative; z-index: 100; padding: 15px; background: rgba(0,0,0,0.6); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div id="user-title" style="color: #9945FF; font-weight: bold; font-size: 14px;">[밀가루 반죽]</div>
-                    <div style="display: flex; gap: 5px;">
-                        <div id="weather-tag" style="font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(255, 255, 255, 0.1); color: #fff;">☀️ 맑음</div>
-                        <div id="status-tag" style="font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(20, 241, 149, 0.1); color: #14F195;">● 활동중</div>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span>🍪</span> <span id="food-val" style="color: #fff; font-weight: bold;">0/10</span>
-                    </div>
-                    <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span>💎</span> <span id="shard-val" style="color: #f1c40f; font-weight: bold;">0</span>
-                    </div>
-                </div>
-            </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div id="user-title" style="color: #9945FF; font-weight: bold; font-size: 14px;">[밀가루 반죽]</div>
+        <div style="display: flex; gap: 5px; align-items: center;">
+            <div id="version-tag" style="
+                font-size: 9px; 
+                padding: 2px 8px; 
+                border-radius: 20px; 
+                background: rgba(20, 241, 149, 0.2); 
+                color: #14F195; 
+                border: 1px solid #14F195;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+            ">ALPHA v0.1</div>
+            
+            <div id="weather-tag" style="font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(255, 255, 255, 0.1); color: #fff;">☀️ 맑음</div>
+            <div id="status-tag" style="font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(20, 241, 149, 0.1); color: #14F195;">● 활동중</div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <span style="font-size: 14px;">🍪</span> <span id="food-val" style="color: #fff; font-weight: bold;">0/10</span>
+        </div>
+        <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <span style="font-size: 14px;">💎</span> <span id="shard-val" style="color: #f1c40f; font-weight: bold;">0</span>
+        </div>
+    </div>
+</div>
 
             <div id="character-area" style="position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; overflow: visible; padding-bottom: 10px;">
                 <div id="rank-ticker" style="position: absolute; top: 15px; width: 100%; z-index: 10; overflow: hidden;">
@@ -121,6 +132,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=2.0"></script>
+
 </body>
 </html>

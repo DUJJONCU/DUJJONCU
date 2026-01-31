@@ -182,8 +182,10 @@ body {
 }
 /* 스킨이 적용되는 배경 레이어 설정 */
 #screen {
-    position: relative;
-    z-index: 1;
+    /* 배경이 바뀔 때 부드럽게 전환되는 효과 */
+    transition: background 0.8s ease-in-out;
+    /* 전체적으로 아주 살짝 푸른빛이 도는 오버레이 */
+    box-shadow: inset 0 0 100px rgba(153, 69, 255, 0.2);
 }
 
 .action-btn {
@@ -307,23 +309,30 @@ body {
 /* [수정] 아담해진 말풍선 디자인 */
 #speech-bubble {
     position: absolute;
-    top: 135px; /* 60px에서 135px로 내려 캐릭터와 가깝게 배치 */
+    top: 135px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(255, 255, 255, 0.95);
     border: 2px solid #9945FF;
-    padding: 6px 12px;
+    padding: 8px 15px; /* 여백을 조금 더 넉넉히 주면 예뻐요 */
     border-radius: 15px;
     font-size: 11px;
     font-weight: bold;
     color: #333;
-    white-space: nowrap;
-    max-width: 150px;
+    /* 1. 이 부분을 수정합니다 */
+    white-space: normal;      /* 줄바꿈 허용 */
+    word-break: keep-all;     /* 단어 단위로 예쁘게 줄바꿈 */
+    
+    /* 2. 너비 설정 최적화 */
+    width: max-content;       /* 글자가 짧으면 글자만큼만 너비 차지 */
+    max-width: 180px;         /* 너무 길어지면 180px에서 줄바꿈 시작 */
+    
+    line-height: 1.4;         /* 줄바꿈 시 간격 조절 */
     text-align: center;
     box-shadow: 0 4px 10px rgba(153, 69, 255, 0.2);
     z-index: 100;
     display: none;
-    pointer-events: none; /* 말풍선 때문에 클릭이 안 되는 현상 방지 */
+    pointer-events: none;
 }
 
 /* 말풍선 꼬리 복구 */

@@ -159,9 +159,9 @@ function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // 저장된 스킨이 있다면 적용
-    if (userData && userData.currentSkin) {
-        applySkin(userData.currentSkin);
+    // 유저 생성 또는 저장 시점에 추가
+    if (userData && !userData.joinedVersion) {
+    userData.joinedVersion = "ALPHA_v0.1";
     }
 
     updateRanking(); 
@@ -970,14 +970,35 @@ setTimeout(updateWeather, 1000);
 
 // 1. 스킨 데이터 설정
 const SKINS = {
-    'default': { name: '오리지널 블랙', background: '#050505' },
-    'solana': { name: '솔라나 네온', background: 'linear-gradient(135deg, #14F195 0%, #9945FF 100%)' },
-    'midnight': { name: '미드나잇 블루', background: 'linear-gradient(to bottom, #020111, #191970)' },
-    'sunset': { name: '선셋 퍼플', background: 'linear-gradient(to top, #20002c, #cbb4d4)' },
+    'default': { 
+        name: '오리지널 블랙', 
+        background: '#050505' 
+    },
+    'solana': { 
+        name: '네온 시티 (SOL)', 
+        background: "url('./assets/images/backgrounds/solanacity.png')", 
+        msg: "솔라나의 에너지가 흐르는 네온 시티에 오신 것을 환영합니다! ⚡",
+        uiStyle: {
+            borderColor: "#19FB9B", // 솔라나 민트색 테두리
+            boxShadow: "0 0 15px #DC1FFF" // 퍼플 네온 광채 효과
+        }
+    },
+    'sunset': { 
+        name: '사이버 선셋', 
+        background: "url('./assets/images/backgrounds/cybersunset.jpg')", 
+        msg: "보랏빛 노을 사이로 시커 타워가 빛나고 있어요... 🌆✨",
+        themeColor: "#ff00ff", // UI 포인트 컬러 (네온 핑크)
+        characterEffect: "neon-glow" // 캐릭터에 은은한 빛 효과 추가 (선택 사항)
+    },
+    'bakery': { 
+        name: '두쫀쿠 베이커리', 
+        background: "url('./assets/images/backgrounds/bakery.jpg')", 
+        msg: "갓 구운 따끈따끈한 두쫀쿠들이 기다려요! 🥖🍪" 
+    },
     'village': { 
         name: '평화로운 마을', 
-        background: "url('./assets/images/backgrounds/village_bg.jpg')", // 경로 수정됨
-        msg: "마을 공기가 참 좋다, 그치?" 
+        background: "url('./assets/images/backgrounds/village_bg.jpg')", 
+        msg: "마을 공기가 참 좋다, 그치? 🌲" 
     }
 };
 
@@ -1077,3 +1098,101 @@ function saveData() {
         db.ref(`users/${userData.id}`).set(userData);
     }
 }
+
+// 레트로 게임기 엔진
+
+// --- [사운드 시스템 시작] ---
+if (typeof RetroAudio === 'undefined') {
+    var RetroAudio = {
+        ctx: null,
+        isPlaying: false,
+
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        },
+
+        // 배경음악 (사각파)
+        playLoop() {
+            this.init();
+            if (this.isPlaying) return;
+            this.isPlaying = true;
+
+            const sequence = [440, 523, 659, 783]; 
+            let step = 0;
+            setInterval(() => {
+                if (!this.isPlaying) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(sequence[step % sequence.length], this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+                step++;
+            }, 200);
+        },
+
+        // 캐릭터 클릭음: "뿅!"
+        playClick() {
+            this.init();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle'; 
+            osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1046.50, this.ctx.currentTime + 0.1); 
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.1);
+        },
+
+        // 메뉴 클릭음: "띠링!"
+        playMenuClick() {
+            this.init();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square'; 
+            osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(783.99, this.ctx.currentTime + 0.05); 
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.05);
+        }
+    };
+}
+
+// --- [이벤트 바인딩] ---
+
+// 1. 화면 클릭 시 배경음악 시작
+window.addEventListener('click', () => {
+    RetroAudio.playLoop();
+}, { once: true });
+
+// 2. 캐릭터 이미지 클릭음 연결
+const characterImgEl = document.getElementById('character-img'); 
+if (characterImgEl) {
+    characterImgEl.addEventListener('click', () => {
+        RetroAudio.playClick();
+    });
+}
+
+// 3. 메뉴 버튼들 클릭음 연결 (하단 버튼들)
+// 스크린샷의 '먹이기', '활동', '스킨', '메뉴' 버튼이 이 클래스를 가져야 합니다.
+document.querySelectorAll('.nav-item, .action-btn, button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        RetroAudio.playMenuClick();
+    });
+});
