@@ -158,21 +158,29 @@ function repairData() {
 function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
-    
-    // 1. 저장된 스킨이 있으면 즉시 적용
-    if (userData && userData.currentSkin) {
-        applySkin(userData.currentSkin);
-    }
 
-    // 2. [추가] 로그인 시 방문 에너지 5개로 충전 (하루 방문 제한용)
     if (userData) {
-        userData.visitEnergy = 5;
+        // 서버 데이터 키값이 달라도 안전하게 통합 (중요!)
+        userData.hg = userData.hg ?? userData.hungry ?? 100;
+        userData.mood = userData.mood ?? userData.md ?? 100;
+        userData.lv = userData.lv ?? userData.level ?? 1;
+        userData.xp = userData.xp ?? 0;
+        userData.foodCount = userData.foodCount ?? userData.food ?? 0;
+        userData.shards = userData.shards ?? 0;
+        userData.totalLikes = userData.totalLikes ?? 0;
+        userData.visitEnergy = 5; // 매일 충전용
+
+        if (userData.currentSkin) applySkin(userData.currentSkin);
     }
 
+    updateUI(); 
     updateRanking(); 
     updateWeather();
-    setInterval(updateRanking, 60000);
-    setInterval(gameLoop, 1000);
+    
+    if (!window.gameInterval) {
+        window.gameInterval = setInterval(gameLoop, 1000);
+        setInterval(updateRanking, 60000);
+    }
 }
 
 // --- [5. 게임 루프 통합본] ---
@@ -301,64 +309,77 @@ function handleTap(event) {
 }
 
 function handleFeed() {
-    if (userData.foodCount > 0 && userData.hg < 100) {
+    const currentFood = userData.foodCount || 0;
+    const currentHungry = userData.hungry || 0;
+
+    if (currentFood > 0 && currentHungry < 100) {
+        // 데이터 업데이트
         userData.foodCount--;
-        userData.hg = Math.min(100, userData.hg + 30);
-        // --- [무드 상승 로직 까다롭게 변경] ---
-    // 1. 기본적으로 40%의 확률로만 기분이 좋아짐 (나머지 60%는 클릭해도 무드 안 오름)
-    if (Math.random() < 0.4) {
-        let moodBoost = 0.1; // 기본 상승치
+        userData.hungry = Math.min(100, currentHungry + 30);
 
-        // 2. 날씨가 '비'나 '안개'일 때는 기분이 잘 안 올라감 (상승치 절반)
-        if (currentWeather === "🌧️ 비" || currentWeather === "🌫️ 안개") {
-            moodBoost *= 0.5;
+        // --- [효과 추가!] ---
+        playFeedSound();      // 소리 재생
+        createCookieEffect(); // 쿠키 튀기기
+
+        // 무드 상승 로직
+        if (Math.random() < 0.4) {
+            let moodBoost = 2.0; 
+            if (typeof currentWeather !== 'undefined' && (currentWeather === "🌧️ 비" || currentWeather === "🌫️ 안개")) {
+                moodBoost *= 0.5;
+            }
+            if (userData.hungry > 70) moodBoost += 1.0;
+            userData.mood = Math.min(100, (userData.mood || 0) + moodBoost);
         }
 
-        // 3. 배가 든든할 때(70 이상)는 기분이 더 잘 올라감 (보너스)
-        if (userData.hg > 70) {
-            moodBoost += 0.05;
-        }
-
-        userData.mood = Math.min(100, userData.mood + moodBoost);
-    }
-        showBubble("냠냠! 맛있다 🍪");
+        showBubble("냠냠! 진짜 맛있다! 🍪✨");
         saveData();
         updateUI();
-    } else alert("먹이가 부족하거나 배부릅니다!");
+    } else {
+        alert("먹이가 부족하거나 배부릅니다!");
+    }
 }
 
 // --- [7. UI 및 모달] ---
-// [수정] 경험치 바 업데이트 로직
 function updateUI() {
     if (!userData) return;
 
-    // 1. 상단 상태 태그 업데이트
-    const statusTag = document.getElementById('status-tag');
+    // 1. 상단 아이디 및 좋아요 (값이 없으면 0)
+    const userIdDisplay = document.getElementById('user-id-display');
+    if (userIdDisplay) {
+        userIdDisplay.innerHTML = `
+            ${userData.id} 
+            <span style="font-size:10px; color:#ff4081; margin-left:8px;">
+                ❤️ ${userData.totalLikes || 0}
+            </span>
+        `;
+    }
+
+    // 2. 상태 태그 (isBonusTime 등이 정의되지 않았을 경우 대비)
     let statusText = "● 활동중";
     let statusColor = "#14F195"; 
+    const statusTag = document.getElementById('status-tag');
 
-    if (isBonusTime) {
+    if (window.isBonusTime) {
         statusText = "🔥 BONUS TIME!!";
         statusColor = "#ff4757"; 
-    } else if (userData.hg <= 0) {
+    } else if ((userData.hg || 0) <= 0) {
         statusText = "● 그로기 (탈진)";
         statusColor = "#ea14d1ae"; 
-    } else if (isSleeping) {
+    } else if (window.isSleeping) {
         statusText = "● 휴식 중";
         statusColor = "#3498db"; 
-    } else if (userData.isAdventuring) {
-        statusText = "● 탐험 중";
-        statusColor = "#f1c40f"; 
     }
 
     if (statusTag) {
         statusTag.innerText = statusText;
         statusTag.style.color = statusColor;
         statusTag.style.border = `1px solid ${statusColor}`;
-        statusTag.style.animation = isBonusTime ? "blink 0.5s infinite" : "none";
     }
 
-    // 2. 경험치 바 계산 (30일 밸런스 공식 적용)
+    // 3. 경험치 바 계산 (userData.lv가 없으면 1로 계산)
+    const currentLv = userData.lv || 1;
+    const currentXp = userData.xp || 0;
+
     const getLevelXP = (lv) => {
         let req = 500 + (lv * 500) + (Math.pow(lv, 2) * 150);
         if (lv >= 100) req += Math.pow(lv - 99, 3) * 15;
@@ -366,8 +387,8 @@ function updateUI() {
         return Math.floor(req);
     };
 
-    const nextXPRequired = getLevelXP(userData.lv);
-    let xpPercent = (userData.xp / nextXPRequired) * 100;
+    const nextXPRequired = getLevelXP(currentLv);
+    let xpPercent = (currentXp / nextXPRequired) * 100;
     xpPercent = Math.min(100, Math.max(0, xpPercent));
 
     const expBar = document.getElementById('exp-bar');
@@ -375,31 +396,76 @@ function updateUI() {
 
     if (expBar) expBar.style.width = xpPercent + "%";
     if (expLabel) {
-        expLabel.innerText = `Lv.${userData.lv} (${xpPercent.toFixed(4)}%)`;
+        expLabel.innerText = `Lv.${currentLv} (${xpPercent.toFixed(4)}%)`;
     }
 
-    // 3. 자원 수치 업데이트
+// 쿠키 파티클 생성기
+function createCookieEffect() {
+    const charArea = document.getElementById('character-area');
+    const cookieCount = 6; // 한 번에 튀어나올 쿠키 개수
+
+    for (let i = 0; i < cookieCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'cookie-particle';
+        particle.innerText = '🍪';
+        
+        // 랜덤한 방향 설정
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 50 + Math.random() * 100;
+        const x = Math.cos(angle) * dist + "px";
+        const y = Math.sin(angle) * dist + "px";
+        
+        particle.style.setProperty('--x', x);
+        particle.style.setProperty('--y', y);
+        
+        // 캐릭터 중앙 위치에서 시작
+        particle.style.left = "50%";
+        particle.style.top = "50%";
+
+        charArea.appendChild(particle);
+
+        // 애니메이션 종료 후 제거
+        setTimeout(() => particle.remove(), 800);
+    }
+}
+
+// 효과음 재생 함수 (기본 브라우저 사운드나 무료 에셋 URL 활용)
+function playFeedSound() {
+    const audio = new Audio('https://t1.daumcdn.net/tistory_admin/static/manage/v2/sound/pop.mp3'); // 톡 터지는 소리
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("사운드 재생 차단됨"));
+}
+
+// 4. 자원 수치 업데이트 (DB 명칭 hungry, mood에 맞춤)
     const hungryBar = document.getElementById('hungry-bar');
     const hungryVal = document.getElementById('hungry-val');
     const moodBar = document.getElementById('mood-bar');
     const moodVal = document.getElementById('mood-val');
 
-    if (hungryBar) hungryBar.style.width = userData.hg + "%";
-    if (hungryVal) hungryVal.innerText = `${Math.floor(userData.hg)}/100`;
-    if (moodBar) moodBar.style.width = userData.mood + "%";
-    if (moodVal) moodVal.innerText = `${Math.floor(userData.mood)}/100`;
+    // DB에 저장된 실제 이름인 hungry와 mood를 사용합니다.
+    // 값이 없을 경우를 대비해 ?? 0 을 붙여줍니다.
+    const hgValue = userData.hungry ?? userData.hg ?? 0; 
+    const moodValue = userData.mood ?? 0;
 
-    if (document.getElementById('food-val')) document.getElementById('food-val').innerText = `${userData.foodCount}/10`;
-    if (document.getElementById('shard-val')) document.getElementById('shard-val').innerText = Math.floor(userData.shards).toLocaleString();
-
-    // 4. 이름 및 칭호 표시
-    const title = TITLES.filter(t => userData.lv >= t.lv).pop();
-    let nameDisplay = `[${title.name}] ${userData.id}`;
-    if (userData.isDonator) {
-        nameDisplay = `<span style="color:#f1c40f; font-weight:bold;">[💎명예]</span> ` + nameDisplay;
+    if (hungryBar) {
+        hungryBar.style.width = Math.min(100, Math.max(0, hgValue)) + "%";
     }
-    const userTitleEl = document.getElementById('user-title');
-    if (userTitleEl) userTitleEl.innerHTML = nameDisplay;
+    if (hungryVal) {
+        hungryVal.innerText = `${Math.floor(hgValue)}/100`;
+    }
+
+    if (moodBar) {
+        moodBar.style.width = Math.min(100, Math.max(0, moodValue)) + "%";
+    }
+    if (moodVal) {
+        moodVal.innerText = `${Math.floor(moodValue)}/100`;
+    }
+
+    // 5. 쿠키 및 조각 업데이트 (DB 명칭 foodCount, shards에 맞춤)
+    const fVal = document.getElementById('food-val');
+    const sVal = document.getElementById('shard-val');
+    if (fVal) fVal.innerText = (userData.foodCount ?? 0);
+    if (sVal) sVal.innerText = Math.floor(userData.shards ?? 0).toLocaleString();
 }
    
 function openModal() {
@@ -1400,16 +1466,29 @@ function createVisitorUI(targetId) {
     });
 }
 
-// [4. 좋아요 기능 (상대방 무드 상승)]
+// [방문 시스템 4] 좋아요 보내기 (무드 +5 및 누적 좋아요 +1)
 function giveLike(targetId) {
+    // 1. 상대방의 무드 상승 (+5)
     db.ref('users/' + targetId + '/mood').transaction((current) => Math.min(100, (current || 0) + 5));
+
+    // 2. [추가] 상대방의 누적 좋아요 상승 (+1)
+    db.ref('users/' + targetId + '/totalLikes').transaction((current) => (current || 0) + 1);
+
     showBubble(`❤️ ${targetId}님에게 응원을 보냈어요!`);
+    if (typeof RetroAudio !== 'undefined') RetroAudio.playClick();
 }
 
-// [5. 간식 주기 기능 (상대방 허기 상승)]
+// [방문 시스템 5] 간식 주기 (변수명을 userData.hg에 맞춰 수정)
 function giveSnack(targetId) {
-    db.ref('users/' + targetId + '/hungry').transaction((current) => Math.min(100, (current || 0) + 5));
-    showBubble(`🍪 ${targetId}님 캐릭터에게 간식을 줬어요!`);
+    const targetRef = db.ref('users/' + targetId + '/hg'); // hungry 대신 hg로 매칭
+    targetRef.transaction((currentHg) => {
+        return Math.min(100, (currentHg || 0) + 5);
+    }, (error, committed) => {
+        if (committed) {
+            showBubble(`🍪 ${targetId}님의 두쫀쿠가 간식을 먹었어요!`);
+            if (typeof RetroAudio !== 'undefined') RetroAudio.playClick();
+        }
+    });
 }
 
 // [로그 시스템] 내 방에 온 유저 목록 보기

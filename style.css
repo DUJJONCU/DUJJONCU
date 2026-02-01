@@ -825,3 +825,24 @@ button, .action-btn, .nav-item {
     user-select: none;                        /* 글자 드래그 방지 */
     outline: none;                            /* 클릭 시 테두리 제거 */
 }
+
+/* 쿠키 파티클 스타일 */
+.cookie-particle {
+    position: absolute;
+    pointer-events: none;
+    font-size: 20px;
+    z-index: 999;
+    user-select: none;
+    animation: cookie-fly 0.8s ease-out forwards;
+}
+
+@keyframes cookie-fly {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--x), var(--y)) scale(0.5) rotate(360deg);
+        opacity: 0;
+    }
+}
