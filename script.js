@@ -159,9 +159,9 @@ function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // 유저 생성 또는 저장 시점에 추가
-    if (userData && !userData.joinedVersion) {
-    userData.joinedVersion = "ALPHA_v0.1";
+    // 이 코드를 추가하세요: 저장된 스킨이 있으면 즉시 적용
+    if (userData && userData.currentSkin) {
+        applySkin(userData.currentSkin);
     }
 
     updateRanking(); 
@@ -170,11 +170,11 @@ function loginSuccess() {
     setInterval(gameLoop, 1000);
 }
 
-// --- [5. 게임 루프] ---
+// --- [5. 게임 루프 통합본] ---
 function gameLoop() {
     if (!userData) return;
 
-    // [수정] 보너스 타임 랜덤 발생 로직 (중괄호와 실행 함수 연결 수정)
+    // 1. 보너스 타임 로직
     if (!isBonusTime && Math.random() < 0.001) {
         startBonusTime();
     }
@@ -182,63 +182,67 @@ function gameLoop() {
     checkGroggy();
     checkFoodSupply();
 
+    // 변수 안정화: mood 값이 없으면 100으로 초기화
+    if (userData.mood === undefined) userData.mood = 100;
+    if (userData.hungry === undefined) userData.hungry = 100;
+
+    // 2. 상태별 수치 변화 로직
     if (isSleeping) {
-        userData.hg = Math.min(100, userData.hg + 0.3);
-        // [수정] 자는 동안 무드가 올라가는 속도를 절반으로 줄임 (0.2 -> 0.1)
+        // 자는 동안 수치 회복
+        userData.hungry = Math.min(100, (userData.hungry || 0) + 0.3);
         userData.mood = Math.min(100, userData.mood + 0.1); 
         createZzz();
-        if(userData.hg >= 100) {
+        
+        if(userData.hungry >= 100) {
             isSleeping = false;
             const charImg = document.getElementById('character-img');
             if(charImg) charImg.classList.remove('sleeping');
             const sleepBtn = document.getElementById('sleep-btn');
-            if(sleepBtn) sleepBtn.innerText = "💤 잠자기";
+            if(sleepBtn) sleepBtn.innerText = "⚡ 활동";
         }
     } else {
-        // [수정] 활동 중 무드 감소 폭을 2배로 증가 (0.05 -> 0.1)
-    userData.mood = Math.max(0, userData.mood - 0.1);
-}
+        // 활동 중 수치 감소 (기본 감소량 적용)
+        userData.hungry = Math.max(0, (userData.hungry || 0) - 0.1);
+        userData.mood = Math.max(0, userData.mood - 0.15); // 기존보다 강화된 감소폭
 
-    // [수정된 부분] 12초마다 두쫀쿠가 상태에 맞는 대사를 무작위로 출력
-    if (Date.now() - lastInteractionTime > 12000) {
-        // 상태별 리스트 설정
-        const state = isSleeping ? 'sleeping' : 
-                      (userData.hg < 30 ? 'hungry' : 
-                      (userData.mood < 30 ? 'depressed' : 'mzMeme'));
-        
-        const pool = DIALOGUES[state];
-        const randomQuote = pool[Math.floor(Math.random() * pool.length)];
-        
-        showBubble(randomQuote); // 말풍선 띄우기
-        lastInteractionTime = Date.now(); // 시간 초기화
+        // [날씨 영향] 비나 안개 시 무드 추가 감소
+        if (typeof currentWeather !== 'undefined' && (currentWeather.includes("비") || currentWeather.includes("안개"))) {
+            userData.mood = Math.max(0, userData.mood - 0.05);
+        }
+
+        // [배고픔 영향] 배고픔이 30 미만이면 무드 추가 감소
+        if (userData.hungry < 30) {
+            userData.mood = Math.max(0, userData.mood - 0.1);
+        }
     }
 
+    // 3. 탐험 완료 체크
     if (userData.isAdventuring && Date.now() >= userData.adventureEndTime) {
         userData.isAdventuring = false;
         const reward = Math.floor(Math.random() * 51) + 30;
-        userData.shards += reward;
+        userData.shards = (userData.shards || 0) + reward;
         alert(`🏹 탐험 완료! 조각 ${reward}개 획득!`);
         saveData();
     }
-    // [gameLoop 내부에 추가]
-    if (currentWeather === "🌧️ 비" || currentWeather === "🌫️ 안개") {
-    // 비나 안개 날씨에는 무드가 추가로 0.05 더 감소
-    userData.mood = Math.max(0, userData.mood - 0.05);
-    }
-    // gameLoop 내부
-    if (!isSleeping) {
-    // 기존 -0.05에서 -0.15 정도로 강화 (3배 더 빨리 우울해짐)
-    userData.mood = Math.max(0, userData.mood - 0.15); 
-    } 
 
-    // [gameLoop 내 하단에 추가]
-    if (!isSleeping && userData.hg < 30) {
-    // 배고픔이 30 미만이면 무드가 추가로 0.1 더 감소 (총 0.2 감소)
-    userData.mood = Math.max(0, userData.mood - 0.1);
+    // 4. 대사 출력 (12초마다 무작위)
+    if (Date.now() - lastInteractionTime > 12000) {
+        const state = isSleeping ? 'sleeping' : 
+                      (userData.hungry < 30 ? 'hungry' : 
+                      (userData.mood < 30 ? 'depressed' : 'mzMeme'));
+        
+        if (typeof DIALOGUES !== 'undefined' && DIALOGUES[state]) {
+            const pool = DIALOGUES[state];
+            const randomQuote = pool[Math.floor(Math.random() * pool.length)];
+            showBubble(randomQuote);
+        }
+        lastInteractionTime = Date.now();
     }
+
+    // 5. UI 업데이트 및 자동 저장
     updateUI();
+    if (Date.now() % 5000 < 1000) saveData(); 
 }
-
 // --- [6. 메인 액션] ---
 // --- [부유 텍스트 함수: handleTap 밖으로 뺍니다] ---
 // [1] 부유 텍스트 생성기 (파일 하단이나 handleTap 위에 두세요)
@@ -590,43 +594,7 @@ async function fightBoss(type) {
     showMenuDetail('m-boss');
 }
 
-function applySkin(skinId) {
-    const screen = document.getElementById('screen');
-    const skin = SKINS[skinId];
-    if (!screen || !skin) return;
 
-    // 1. 배경 이미지/색상 적용 및 최적화
-    screen.style.background = skin.background;
-    screen.style.backgroundSize = "cover";      // 이미지가 화면에 꽉 차게
-    screen.style.backgroundPosition = "center"; // 이미지 중심 맞춤
-    screen.style.backgroundRepeat = "no-repeat";
-
-    // 2. 배경음악 제어 (추가된 부분)
-    // 기존에 재생 중인 루프가 있다면 멈추고 새로 시작하거나, 
-    // 스킨에 전용 오디오가 있다면 여기서 교체 로직을 넣을 수 있습니다.
-    if (RetroAudio && RetroAudio.isPlaying) {
-        // 현재는 단일 루프지만, 나중에 스킨별 음악을 넣으려면 
-        // RetroAudio.stopLoop() 후 새 음악 재생 로직을 여기에 넣습니다.
-    }
-
-    // 3. 데이터 저장
-    if (userData) { 
-        userData.currentSkin = skinId; 
-        saveData(); 
-    }
-
-    // 4. UI 피드백
-    closeModal();
-    
-    // 스킨 메뉴가 아닌 일반 모달(스킨선택창)이 따로 있다면 그것도 닫기
-    const skinMenu = document.getElementById('skin-menu');
-    if (skinMenu) skinMenu.style.display = 'none';
-
-    showBubble(skin.msg || `✨ ${skin.name} 스킨 적용!`);
-    
-    // 버튼 클릭 효과음 재생
-    if (RetroAudio) RetroAudio.playMenuClick();
-}
 
 // --- [8. 보조 함수들] ---
 function upgradeItem(type) {
@@ -946,50 +914,13 @@ async function donateShards() {
     }
 }
 
-// --- [날씨 시스템] ---
+// --- [날씨 시스템 최종 수정본] ---
 let currentWeather = "☀️ 맑음";
 
-function updateWeather() {
-    const container = document.getElementById('character-area');
-    const weatherTag = document.getElementById('weather-tag');
-    const weatherList = ["☀️ 맑음", "🌧️ 비", "❄️ 눈", "🍃 바람", "🌫️ 안개"];
-    
-    // 무작위 날씨 선택
-    currentWeather = weatherList[Math.floor(Math.random() * weatherList.length)];
-    
-    // 1. UI 업데이트
-    if (weatherTag) weatherTag.innerText = currentWeather;
+// 🕒 1분마다 날씨 변경
+setInterval(updateWeather, 60000);
 
-    // 2. 기존 효과 제거
-    document.querySelectorAll('.weather-particle, .fog-layer').forEach(p => p.remove());
-    container.style.filter = "none";
-
-    // 3. 날씨별 시각 효과 생성
-    if (currentWeather === "🌧️ 비" || currentWeather === "❄️ 눈" || currentWeather === "🍃 바람") {
-        const emoji = currentWeather === "🌧️ 비" ? "💧" : (currentWeather === "❄️ 눈" ? "❄️" : "🍃");
-        
-        for (let i = 0; i < 20; i++) {
-            const p = document.createElement('div');
-            p.className = 'weather-particle' + (currentWeather === "🍃 바람" ? " windy" : "");
-            p.innerText = emoji;
-            p.style.left = Math.random() * 100 + "%";
-            p.style.fontSize = "14px";
-            p.style.animationDuration = (Math.random() * 2 + 2) + "s";
-            p.style.animationDelay = Math.random() * 3 + "s";
-            container.appendChild(p);
-        }
-    } else if (currentWeather === "🌫️ 안개") {
-        const fog = document.createElement('div');
-        fog.className = 'fog-layer';
-        container.appendChild(fog);
-    } else if (currentWeather === "☀️ 맑음") {
-        container.style.filter = "brightness(1.1) saturate(1.1)";
-    }
-}
-
-// 🕒 30초마다 날씨 변경 (테스트를 위해 짧게 설정, 나중에 60000으로 늘리셔도 돼요!)
-setInterval(updateWeather, 30000);
-
+// 🚀 로그인 성공 시 호출되도록 loginSuccess 함수 안에 updateWeather(); 가 있는지 확인하세요!
 // 🚀 게임 시작 시 즉시 실행 (가장 중요!)
 setTimeout(updateWeather, 1000);
 
@@ -1029,25 +960,6 @@ const SKINS = {
     }
 };
 
-// 2. 스킨 적용 함수
-function applySkin(skinId) {
-    const screen = document.getElementById('screen');
-    const skin = SKINS[skinId];
-    if (!screen || !skin) return;
-
-    screen.style.backgroundImage = "none"; 
-    screen.style.background = skin.background;
-    screen.style.backgroundSize = "cover";
-    screen.style.backgroundPosition = "center";
-
-    if (userData) {
-        userData.currentSkin = skinId;
-        saveData();
-    }
-    closeModal();
-    window.dispatchEvent(new Event('resize'));
-    showBubble(skin.msg || `✨ 스킨 적용 완료!`);
-}
 
 // 3. 스킨 메뉴 열기
 function openSkinMenu() {
@@ -1253,3 +1165,68 @@ document.addEventListener('click', (e) => {
         RetroAudio.playMenuClick();
     }
 });
+
+function openWalkMenu() {
+    // 레트로 클릭음 재생
+    if (typeof RetroAudio !== 'undefined') RetroAudio.playMenuClick();
+
+    const content = `
+        <div style="text-align:center; padding: 10px;">
+            <h3 style="color:#14F195; margin-bottom:20px;">🐾 두쫀쿠 산책센터</h3>
+            <div style="display:grid; gap:10px;">
+                <button onclick="startGpsSearch()" style="padding:15px; border-radius:12px; border:none; background:#9945FF; color:#fff; font-weight:bold;">📍 GPS로 두쫀쿠 찾기</button>
+                <button onclick="openUserList()" style="padding:15px; border-radius:12px; border:none; background:#333; color:#fff; font-weight:bold;">🏠 다른 유저 방문하기</button>
+            </div>
+            <p style="font-size:11px; color:#888; margin-top:15px;">※ 산책 수익은 $DUJJONCU 유동성 풀에 기여됩니다.</p>
+        </div>
+    `;
+    
+    // 기존 모달 함수 활용
+    const modalTab = document.getElementById('modal-tab-content');
+    if (modalTab) {
+        modalTab.innerHTML = content;
+        document.getElementById('game-modal').style.display = 'flex';
+    }
+}
+// [통합된 스킨 적용 및 저장 함수]
+function applySkin(skinId) {
+    const screen = document.getElementById('screen');
+    const skin = SKINS[skinId];
+    if (!screen || !skin) return;
+
+    // 1. 화면에 스킨 입히기
+    screen.style.backgroundImage = "none"; 
+    screen.style.background = skin.background;
+    screen.style.backgroundSize = "cover";
+    screen.style.backgroundPosition = "center";
+
+    // 2. 유저 데이터에 저장 (로그아웃 후에도 유지)
+    if (userData) {
+        userData.currentSkin = skinId; 
+        saveData(); // Firebase 서버에 저장 요청
+        console.log("스킨 저장 완료:", skinId);
+    }
+
+    if (typeof closeModal === 'function') closeModal();
+    showBubble(skin.msg || `✨ ${skin.name} 스킨이 적용되었습니다!`);
+}
+
+// [수정된 날씨 업데이트 함수]
+function updateWeather() {
+    const weatherIconEl = document.getElementById('weather-icon');
+    const weatherTextEl = document.getElementById('weather-text');
+    
+    const weatherList = [
+        { name: "맑음", emoji: "☀️" },
+        { name: "비", emoji: "🌧️" },
+        { name: "눈", emoji: "❄️" },
+        { name: "바람", emoji: "🍃" },
+        { name: "안개", emoji: "🌫️" }
+    ];
+    
+    const selected = weatherList[Math.floor(Math.random() * weatherList.length)];
+    if (weatherIconEl) weatherIconEl.innerText = selected.emoji;
+    if (weatherTextEl) weatherTextEl.innerText = selected.name;
+    
+    console.log("날씨 동기화:", selected.name);
+}
