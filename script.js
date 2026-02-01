@@ -159,9 +159,14 @@ function loginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // 이 코드를 추가하세요: 저장된 스킨이 있으면 즉시 적용
+    // 1. 저장된 스킨이 있으면 즉시 적용
     if (userData && userData.currentSkin) {
         applySkin(userData.currentSkin);
+    }
+
+    // 2. [추가] 로그인 시 방문 에너지 5개로 충전 (하루 방문 제한용)
+    if (userData) {
+        userData.visitEnergy = 5;
     }
 
     updateRanking(); 
@@ -1176,6 +1181,8 @@ function openWalkMenu() {
             <div style="display:grid; gap:10px;">
                 <button onclick="startGpsSearch()" style="padding:15px; border-radius:12px; border:none; background:#9945FF; color:#fff; font-weight:bold;">📍 GPS로 두쫀쿠 찾기</button>
                 <button onclick="openUserList()" style="padding:15px; border-radius:12px; border:none; background:#333; color:#fff; font-weight:bold;">🏠 다른 유저 방문하기</button>
+                
+                <button onclick="openVisitorLogs()" style="padding:15px; border-radius:12px; border:none; background:#222; color:#fff; font-weight:bold; border:1px solid #444;">📜 내 방문자 로그</button>
             </div>
             <p style="font-size:11px; color:#888; margin-top:15px;">※ 산책 수익은 $DUJJONCU 유동성 풀에 기여됩니다.</p>
         </div>
@@ -1229,4 +1236,231 @@ function updateWeather() {
     if (weatherTextEl) weatherTextEl.innerText = selected.name;
     
     console.log("날씨 동기화:", selected.name);
+}
+
+// [수정] 랜덤 유저 목록 및 방문 횟수 제한 시스템
+function openUserList() {
+    if (typeof RetroAudio !== 'undefined') RetroAudio.playMenuClick();
+
+    // 1. 방문 횟수 체크 (userData에 없으면 5로 초기화)
+    if (userData.visitEnergy === undefined) userData.visitEnergy = 5;
+    
+    if (userData.visitEnergy <= 0) {
+        alert("오늘 방문 에너지를 모두 소모했습니다! 💤 (내일 다시 충전됩니다)");
+        return;
+    }
+
+    db.ref('users').once('value').then((snapshot) => {
+        const users = snapshot.val();
+        if (!users) return;
+
+        // 2. 본인 제외하고 유저 아이디 배열 만들기
+        let userKeys = Object.keys(users).filter(id => id !== userData.id);
+        
+        // 3. 배열 섞기 (Fisher-Yates Shuffle)
+        for (let i = userKeys.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [userKeys[i], userKeys[j]] = [userKeys[j], userKeys[i]];
+        }
+
+        // 4. 상위 5명만 선택
+        const randomUsers = userKeys.slice(0, 5);
+
+        let listHtml = `
+            <div style="padding: 10px;">
+                <h3 style="color:#14F195; text-align:center; margin-bottom:5px;">🌐 무작위 유저 탐색</h3>
+                <p style="text-align:center; font-size:11px; color:#aaa; margin-bottom:15px;">
+                    남은 방문 에너지: <span style="color:#FFD700;">⚡ ${userData.visitEnergy}</span>
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+
+        randomUsers.forEach(id => {
+            const u = users[id];
+            listHtml += `
+                <div onclick="visitWithEnergy('${id}')" style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <span style="color:#fff; font-weight:bold;">${id}</span>
+                    </div>
+                    <div style="font-size:10px; color:#888;">Lv.${u.level || 1} 🐾</div>
+                </div>
+            `;
+        });
+
+        listHtml += `</div>
+            <button onclick="openUserList()" style="width:100%; margin-top:15px; background:none; border:1px solid #444; color:#888; padding:8px; border-radius:8px; font-size:11px;">🔄 목록 새로고침</button>
+        </div>`;
+        
+        document.getElementById('modal-tab-content').innerHTML = listHtml;
+        document.getElementById('game-modal').style.display = 'flex';
+    });
+}
+
+// [신규] 에너지 소모하며 방문하기
+function visitWithEnergy(targetId) {
+    if (userData.visitEnergy > 0) {
+        userData.visitEnergy -= 1; // 에너지 1 차감
+        saveData(); // 차감된 데이터 저장
+        visitUser(targetId); // 기존 방문 함수 실행
+    }
+}
+
+// [방문 시스템 2 - 최종 보완] 유저 방문하기 및 로그 남기기
+function visitUser(targetId) {
+    if (!confirm(`${targetId}님의 공간으로 이동할까요?`)) return;
+
+    db.ref('users/' + targetId).once('value').then((snapshot) => {
+        const targetData = snapshot.val();
+        if (!targetData) return alert("유저 정보를 찾을 수 없습니다.");
+
+        // 1. 방문 로그 기록 추가 (Firebase에 방문자 ID와 시간 저장)
+        const visitLog = {
+            visitor: userData.id,
+            time: Date.now(),
+            msg: "방문함 🐾"
+        };
+        db.ref('users/' + targetId + '/logs').push(visitLog);
+
+        // 2. 배경 변경 (기존 로직)
+        const screen = document.getElementById('screen');
+        if (targetData.currentSkin && typeof SKINS !== 'undefined' && SKINS[targetData.currentSkin]) {
+            const skin = SKINS[targetData.currentSkin];
+            screen.style.background = skin.background;
+            screen.style.backgroundSize = "cover";
+        }
+
+        // 3. UI 변경 및 전용 버튼 생성
+        const titleEl = document.getElementById('user-id-display');
+        if (titleEl) titleEl.innerHTML = `<span style="color:#14F195;">${targetId}</span>님의 공간`;
+        
+        createVisitorUI(targetId);
+        showBubble(`🏠 ${targetId}님의 공간에 도착했습니다!`);
+        closeModal();
+    });
+}
+
+// [방문 시스템 3] 방문자 버튼 위치 및 디자인 최종 수정
+function createVisitorUI(targetId) {
+    const oldUI = document.getElementById('visitor-controls');
+    if (oldUI) oldUI.remove();
+
+    const container = document.createElement('div');
+    container.id = 'visitor-controls';
+    
+    // 전광판보다 충분히 아래인 160px 지점으로 이동 (스크린샷 기준 최적화)
+    container.style.cssText = `
+        position: absolute;
+        top: 160px; 
+        right: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 1001;
+    `;
+
+    // 텍스트 위주의 깔끔한 버튼 스타일
+    const btnBase = `
+        width: 75px; 
+        height: 42px; 
+        border-radius: 10px; 
+        border: none; 
+        color: #fff; 
+        font-weight: bold; 
+        font-size: 10px; 
+        cursor: pointer; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+        transition: all 0.1s;
+    `;
+
+    container.innerHTML = `
+        <button onclick="giveLike('${targetId}')" style="${btnBase} background: #ff4081;">
+            <span style="font-size:12px;">❤️</span>
+            <span>좋아요</span>
+        </button>
+        <button onclick="giveSnack('${targetId}')" style="${btnBase} background: #ffab40;">
+            <span style="font-size:12px;">🍪</span>
+            <span>간식주기</span>
+        </button>
+        <button onclick="goBackHome()" style="${btnBase} background: #444; border: 1px solid #666; margin-top: 5px;">
+            <span style="font-size:12px;">🏠</span>
+            <span>돌아가기</span>
+        </button>
+    `;
+
+    document.getElementById('screen').appendChild(container);
+
+    // 클릭 효과
+    container.querySelectorAll('button').forEach(btn => {
+        btn.onmousedown = () => btn.style.transform = "scale(0.92)";
+        btn.onmouseup = () => btn.style.transform = "scale(1)";
+    });
+}
+
+// [4. 좋아요 기능 (상대방 무드 상승)]
+function giveLike(targetId) {
+    db.ref('users/' + targetId + '/mood').transaction((current) => Math.min(100, (current || 0) + 5));
+    showBubble(`❤️ ${targetId}님에게 응원을 보냈어요!`);
+}
+
+// [5. 간식 주기 기능 (상대방 허기 상승)]
+function giveSnack(targetId) {
+    db.ref('users/' + targetId + '/hungry').transaction((current) => Math.min(100, (current || 0) + 5));
+    showBubble(`🍪 ${targetId}님 캐릭터에게 간식을 줬어요!`);
+}
+
+// [로그 시스템] 내 방에 온 유저 목록 보기
+function openVisitorLogs() {
+    db.ref('users/' + userData.id + '/logs').limitToLast(10).once('value').then((snapshot) => {
+        const logs = snapshot.val();
+        let logHtml = `<div style="padding:10px;"><h3 style="color:#9945FF; text-align:center; margin-bottom:15px;">🐾 최근 방문자 기록</h3>`;
+        
+        if (!logs) {
+            logHtml += `<p style="text-align:center; color:#888;">아직 방문자가 없습니다.</p>`;
+        } else {
+            logHtml += `<div style="display:flex; flex-direction:column; gap:8px;">`;
+            // 역순으로 정렬해서 최근 방문자가 위로 오게 함
+            const logArray = Object.values(logs).reverse();
+            logArray.forEach(log => {
+                const date = new Date(log.time).toLocaleTimeString();
+                logHtml += `
+                    <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
+                        <div><span style="color:#14F195; font-weight:bold;">${log.visitor}</span></div>
+                        <div style="font-size:9px; color:#666;">${date}</div>
+                    </div>
+                `;
+            });
+            logHtml += `</div>`;
+        }
+        
+        logHtml += `</div>`;
+        document.getElementById('modal-tab-content').innerHTML = logHtml;
+    });
+}
+
+function goBackHome() {
+    // 1. 방문자 버튼 UI 제거
+    const visitorUI = document.getElementById('visitor-controls');
+    if (visitorUI) visitorUI.remove();
+
+    // 2. 배경을 내 스킨으로 복구
+    if (userData && userData.currentSkin && typeof SKINS !== 'undefined') {
+        applySkin(userData.currentSkin);
+    } else {
+        document.getElementById('screen').style.background = "#050505"; // 기본 배경
+    }
+
+    // 3. 상단 아이디 표시 내 아이디로 복구
+    const titleEl = document.getElementById('user-id-display');
+    if (titleEl && userData) {
+        titleEl.innerText = userData.id;
+    }
+
+    showBubble("내 공간으로 돌아왔습니다! 🏠");
+    
+    // 4. UI 수치들 내 데이터로 다시 그리기
+    updateUI(); 
 }
